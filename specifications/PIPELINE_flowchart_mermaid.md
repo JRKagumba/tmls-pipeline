@@ -1,61 +1,70 @@
 flowchart LR
 
+    %% =========================
     %% Intake
-    A[Customer texts plumber] --> B[AI answers / intro]
-    B --> C[Customer and AI interact by text]
-    C --> T[Triage occurs here<br/>Level 1 = Immediate<br/>Level 2 = Within 24h<br/>Level 3 = Within 24-48h]
+    %% =========================
+    A[Customer texts plumber] --> B[AI intro / greeting]
+    B --> C[AI collects info<br/>name, problem, contact]
+    C --> T[Triage<br/>emergency / priority / scheduled]
 
-    T --> D{AI call to action for Jill?}
+    %% =========================
+    %% Triage routing
+    %% =========================
+    T --> D{Urgency level?}
 
-    D -->|No| E[End call / end interaction]
+    %% Emergency path (bypasses normal flow)
+    D -->|emergency| E1[Send safety guidance<br/>'If safe, turn off main water valve']
+    E1 --> E2[Alert Jill immediately<br/>dashboard + notification]
+    E2 --> E3[Conversation paused for Jill<br/>status: Emergency / Manual]
 
-    D -->|Yes| F[Determine next action]
+    %% No call-to-action path (terminal)
+    D -->|no actionable intent| N1[Polite close<br/>'Message back if you need plumbing help']
+    N1 --> N2[Status: Closed - No Action<br/>sub-reason: wrong_number / out_of_area /<br/>customer_declined / out_of_scope / spam]
 
-    %% Possible actions
-    F --> F1[Request more info]
-    F --> F2[Call back customer]
-    F --> F3[Provide quote]
-    F --> F4[Book appointment]
+    %% Priority / scheduled continue normal flow
+    D -->|priority / scheduled| F[Customer intent?]
 
-    %% Jill service notification
-    F --> G[AI SMSes Jill<br/>with triage level, customer info,<br/>and service intent]
-    G --> H[Jill follows up with customer]
+    %% =========================
+    %% Intent split
+    %% =========================
+    F -->|Quote only| Q1[AI generates quote draft]
+    F -->|Appointment only| C1[AI sends Calendly link]
+    F -->|Quote then appointment| Q1
 
-    %% Split by customer need
-    H --> I{Customer wants quote or calendar?}
+    %% =========================
+    %% Quote flow (Jill approves quotes only)
+    %% =========================
+    Q1 --> Q2[Quote status: pending_jill_review]
 
-    %% Quote path
-    I -->|Quote| Q1[AI generates quote]
-    Q1 --> Q2[AI sends quote to Jill for approval]
-    Q2 --> Q3{Jill says?}
+    %% Jill notification fires in parallel with quote generation
+    Q1 -.parallel notify.-> JN[Notify Jill<br/>dashboard entry]
 
-    Q3 -->|Yes| Q4[Email sent to customer]
-    Q4 --> Q5{Customer approves?}
-    Q5 -->|Yes| Q6[Proceed / quote accepted]
-    Q5 -->|No| Q7[Jill follows up with customer]
+    Q2 --> Q3{Jill decision?}
+    Q3 -->|Approve| Q4[Send quote to customer<br/>status: sent_to_customer]
+    Q3 -->|Request revision| Q5[Quote returns to draft<br/>new version]
+    Q5 --> Q1
+    Q3 -->|Reject| Q6[Status: rejected<br/>dashboard manual follow-up]
 
-    Q3 -->|Revise| Q8[Jill revises quote]
-    Q8 --> Q4
+    Q4 --> Q7{Customer decision?}
+    Q7 -->|Accept| Q8[Status: customer_accepted]
+    Q7 -->|Decline| Q9[Status: customer_declined<br/>polite close]
 
-    Q3 -->|No| Q9[Jill does not want job / manual process]
+    %% Quote-then-appointment hand-off
+    Q8 --> C1
 
-    %% Calendar path
-    I -->|Calendar| C1[AI looks at Jill's calendar]
-    C1 --> C2[AI finds open slots<br/>for next available date/time]
-    C2 --> C3{Jill says?}
+    %% =========================
+    %% Calendly flow (NO Jill time approval)
+    %% =========================
+    C1 --> C2[Booking status: link_sent]
 
-    C3 -->|Yes| C4[AI sends SMS to customer]
-    C4 --> C5{Customer approves?}
-    C5 -->|Yes| C6[Job booked]
-    C5 -->|No| C7[Jill follows up with customer]
+    %% Jill notification fires in parallel with link send
+    C1 -.parallel notify.-> JN
 
-    C3 -->|Revise| C8[Jill revises appointment options]
-    C8 --> C4
+    C2 --> C3{Customer action?}
+    C3 -->|Books in Calendly| C4[Webhook: invitee.created<br/>status: booked]
+    C3 -->|Cancels| C5[Webhook: invitee.canceled<br/>status: cancelled]
+    C3 -->|No action| C6[Jill marks manual_follow_up]
 
-    C3 -->|No| C9[Manual process / Jill follows up]
-
-    %% Optional connections from earlier action nodes
-    F1 --> G
-    F2 --> G
-    F3 --> Q1
-    F4 --> C1
+    C4 --> C7[Job booked<br/>Jill sees confirmed booking]
+    C5 --> C1
+    C6 --> C1
