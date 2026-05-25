@@ -96,7 +96,7 @@ gcloud run deploy backend \
   --allow-unauthenticated \
   --set-env-vars ALLOWED_ORIGINS="*"
 ```
-👉 **Note l'URL affichée**, ex. `https://backend-xxxxxxxx-ew.a.run.app`
+👉 **Note l'URL affichée**, ex. `https://backend-689084127939.northamerica-northeast2.run.app`
 
 > `ALLOWED_ORIGINS="*"` ouvre le CORS pour démarrer. On le restreindra à l'étape 4.
 
