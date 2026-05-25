@@ -75,6 +75,26 @@ direction TB
 	    +DateTime ended_at
     }
 
+    class Message {
+	    +String id
+	    +String conversation_log_id
+	    +Enum role
+	    +String content
+	    +DateTime timestamp
+    }
+
+    class PipelineTurnLog {
+	    +String id
+	    +String conversation_log_id
+	    +Int turn_number
+	    +Enum sub_agent
+	    +String routing_decision
+	    +Enum state_before
+	    +Enum state_after
+	    +Int latency_ms
+	    +DateTime timestamp
+    }
+
     Contractor "1" --> "*" Client : manages
     Contractor "1" --> "*" CalendarSlot : owns
     Client "1" --> "*" Project : has
@@ -83,3 +103,5 @@ direction TB
     Project "1" --> "*" Quote : has
     Project "1" --> "0..1" Booking : booked as
     Booking "1" --> "1" CalendarSlot : reserves
+    ConversationLog "1" --> "*" Message : contains
+    ConversationLog "1" --> "*" PipelineTurnLog : logged as
