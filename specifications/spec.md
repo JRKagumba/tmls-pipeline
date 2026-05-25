@@ -95,13 +95,14 @@ After scoping the job via conversation, the agent generates a structured quote.
 - Sends quote/confirmation email to customer at end of conversation
 - Email includes: appointment slot, job scope, what to expect, contractor contact info, quoted price
  
-### F5 --  Knowledge Base (Plumbing Domain)
+### F5 -- Plumbing Knowledge (System Prompt)
 
-The agent uses a curated knowledge  to answer plumbing-specific questions accurately and stay in scope.
+Plumbing domain knowledge is included directly in the Conversation Agent system prompt. No retrieval layer.
 
-- Knowledge base seeded from a public plumbing resource and included in the prompt (scraped for hackathon purposes; production use requires permission)
-- Covers: common plumbing problems, what questions to ask per scenario, typical cost ranges, urgency indicators
-- knoweledge retrieval keeps responses grounded and avoids hallucination on trade-specific details - any unknowns are flagged and the ai agent will say that it needs to request the plumber to call the client back 
+- Knowledge authored as a structured section of the system prompt: common problems, urgency signals per problem type, typical cost ranges, triage questions to ask
+- Simpler and faster than RAG for the hackathon scope -- the knowledge set is small enough to fit in context
+- Agent must stay grounded in the prompt content -- if a question is outside the knowledge provided, it says so and flags the conversation for Jill to follow up, rather than guessing
+- Knowledge prompt is editable by the contractor via the dashboard (F6) to refine over time
  
 
 ### 6 -- Contractor Dashboard ("The Pipeline")
@@ -175,7 +176,7 @@ These are explicitly deferred but are in the architecture diagram. Text chat mus
 | NFR-02 | Conversation quality | Short, natural responses. If it sounds like a press-1-for-billing IVR, it has failed. |
 | NFR-03 | Persistence | All conversations, quotes, and booking state stored in JSON flat files on Google Storage (interactions.json and quotes.json). See NFR-12 re: single concurrent access. |
 | NFR-04 | Modularity | Text is the base. Voice, email, and SMS are channels layered on top. Do not couple channel to logic. |
-| NFR-05 | knowledge grounding | Agent must not fabricate plumbing facts. All domain claims should be retrievable from the knowledge base. |
+| NFR-05 | Knowledge grounding | Agent must not fabricate plumbing facts. All domain claims must be grounded in the system prompt knowledge section. Unknown questions are flagged for Jill -- not guessed. |
 | NFR-06 | Scoped LLM use | Use a lightweight/fast model for conversation. Reserve heavier reasoning for triage classification and quote generation if needed. |
 | NFR-07 | No auth required for demo | Single contractor context. No login, no multi-tenant. Ship it. |
 | NFR-08 | Graceful fallback | If the agent cannot answer a question, it must say so clearly and offer to have the contractor follow up -- not hallucinate an answer. |
@@ -234,7 +235,7 @@ Clients
 | Email | Flat file output (MVP) | Generate a formatted flat file for now. Wire SMTP later. |
 | Voice STT / TTS | [Nice to Have] Speech-to-API service | e.g., Deepgram for STT, ElevenLabs or Google TTS for output |
 | SMS / Phone | [Nice to Have] Twilio | Webhook-based; requires deployed URL, not just localhost |
-| Plumbing knowledge | Context window or function call | Provided inline or via RAG retrieval depending on size |
+| Plumbing knowledge | System prompt | Authored as a structured section of the Conversation Agent prompt. No retrieval layer. Editable via dashboard. |
 | Debug / observability | Logging layer | All agent I/O logged per turn. Required. Build this first. |
 
  
@@ -246,7 +247,7 @@ Clients
 | # | Question | Why it matters |
 |---|---|---|
 | 1 | OpenAI or GCP model? | Commit before building. Affects prompt style, latency, and cost. |
-| 2 | Who owns knowledge base sourcing? | Scrape a public plumbing site or hand-craft 50 Q&As. Hand-craft = more demo control. |
+| 2 | Who writes the plumbing knowledge prompt section? | Hand-write 30-50 facts covering common problems, urgency signals, and cost ranges. Goes directly in the system prompt. Someone needs to own this on Day 1. |
 | 3 | Emergency notification -- dashboard flag only, or something more dramatic for the demo? | A red alert banner or simulated ping would sell the emergency scenario. Worth 30 min if time allows. |
 | 4 | Contractor persona for the demo? | "Steve's Plumbing, serving the GTA since 2003" is 10x more believable on stage than placeholder text. |
 | 5 | Who owns the debug / logging layer? | Build this first. Everything else is harder to fix without it. |

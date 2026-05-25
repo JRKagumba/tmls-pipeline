@@ -1,0 +1,59 @@
+%% Pipeline Agent Design v2
+%% Intake and Triage merged into single Conversation Agent
+%% Urgency is tracked continuously, not classified once
+
+flowchart TB
+
+    subgraph CLIENT["Customer Channel"]
+        CX[Customer\nText Chat]
+    end
+
+    subgraph ORCH["Orchestrator — MS Agent SDK"]
+        ORC["Session Manager\nState Machine · Router\nPause / Resume on human events"]
+    end
+
+    subgraph AGENTS["Sub-Agents"]
+        direction LR
+        CA["Conversation Agent\n─────────────────────\nFull customer dialogue\nCollects: name, phone,\nemail, problem details\nContinuously updates\nurgency L1 / L2 / L3\nas conversation evolves\nDecides when to hand off"]
+        NA["Notification Agent\n─────────────\nSMS Jill:\ntriage level +\ncustomer summary +\nservice intent"]
+        QA["Quote Agent\n─────────────\nGenerate quote\n→ Jill review\n→ revise loop\n→ email customer\n→ customer approval"]
+        SA["Scheduling Agent\n─────────────\nSend Calendly link\n→ customer books\n→ webhook confirms\nbooking or cancel"]
+    end
+
+    subgraph HUMAN["Human in the Loop — Contractor"]
+        DASH["Dashboard\nApprove · Revise · Reject"]
+        JILL["Jill"]
+    end
+
+    subgraph TOOLS["Tools & External Services"]
+        direction LR
+        LLM["OpenAI API\n(system prompt includes\nplumbing knowledge)"]
+        CAL["Calendly API v2\n+ webhook"]
+        SMS["SMS Service"]
+        EMAIL["Email Service"]
+        STORE["GCS Storage\ninteractions.json\nquotes.json"]
+    end
+
+    CX -->|message| ORC
+    ORC --> CA
+    ORC --> NA
+    ORC --> QA
+    ORC --> SA
+    ORC <-->|read/write state| STORE
+
+    CA --> LLM
+    NA --> SMS
+    QA --> LLM
+    QA --> EMAIL
+    SA --> CAL
+    SA --> SMS
+
+    CA -.->|urgency + context\nready to hand off| ORC
+
+    NA -.->|SMS alert| JILL
+    QA -.->|quote pending review| DASH
+    SA -.->|booking pending review| DASH
+    JILL --> DASH
+    DASH -->|approve / revise / reject\nresumes orchestrator thread| ORC
+
+    ORC -->|agent response| CX
