@@ -3,11 +3,11 @@ flowchart LR
     %% Intake
     A[Customer texts plumber] --> B[AI answers / intro]
     B --> C[Customer and AI interact by text]
-    C --> T[Triage occurs here<br/>Level 1 = Immediate<br/>Level 2 = Within 24h<br/>Level 3 = Within 24-48h]
+    C --> T[Triage occurs here<br/>L1 = Immediate emergency<br/>L2 = 24-48 hours<br/>L3 = More than 48 hours]
 
     T --> D{AI call to action for Jill?}
 
-    D -->|No| E[End call / end interaction]
+    D -->|No - out of area or<br/>service not offered| E[AI explains / ends conversation]
 
     D -->|Yes| F[Determine next action]
 
@@ -18,41 +18,32 @@ flowchart LR
     F --> F4[Book appointment]
 
     %% Jill service notification
-    F --> G[AI SMSes Jill<br/>with triage level, customer info,<br/>and service intent]
-    G --> H[Jill follows up with customer]
+    F --> G[AI notifies Jill via SMS<br/>triage level + customer info<br/>+ service intent]
+    G --> H[Jill reviews in dashboard]
 
     %% Split by customer need
     H --> I{Customer wants quote or calendar?}
 
     %% Quote path
     I -->|Quote| Q1[AI generates quote]
-    Q1 --> Q2[AI sends quote to Jill for approval]
+    Q1 --> Q2[Quote sent to Jill dashboard for approval]
     Q2 --> Q3{Jill says?}
 
-    Q3 -->|Yes| Q4[Email sent to customer]
+    Q3 -->|Approve| Q4[Email sent to customer]
     Q4 --> Q5{Customer approves?}
     Q5 -->|Yes| Q6[Proceed / quote accepted]
     Q5 -->|No| Q7[Jill follows up with customer]
 
-    Q3 -->|Revise| Q8[Jill revises quote]
-    Q8 --> Q4
+    Q3 -->|Revise| Q8[Jill adds comment / AI regenerates quote]
+    Q8 --> Q2
 
-    Q3 -->|No| Q9[Jill does not want job / manual process]
+    Q3 -->|Reject| Q9[Jill does not want job / manual process]
 
-    %% Calendar path
-    I -->|Calendar| C1[AI looks at Jill's calendar]
-    C1 --> C2[AI finds open slots<br/>for next available date/time]
-    C2 --> C3{Jill says?}
-
-    C3 -->|Yes| C4[AI sends SMS to customer]
-    C4 --> C5{Customer approves?}
-    C5 -->|Yes| C6[Job booked]
-    C5 -->|No| C7[Jill follows up with customer]
-
-    C3 -->|Revise| C8[Jill revises appointment options]
-    C8 --> C4
-
-    C3 -->|No| C9[Manual process / Jill follows up]
+    %% Calendar path - Calendly
+    I -->|Calendar| C1[AI sends Calendly scheduling link to customer]
+    C1 --> C2{Customer books via Calendly?}
+    C2 -->|Yes - invitee.created webhook| C3[Job booked<br/>Dashboard notified<br/>booked_slot_text saved]
+    C2 -->|No / canceled - invitee.canceled webhook| C4[Jill follows up / manual process]
 
     %% Optional connections from earlier action nodes
     F1 --> G

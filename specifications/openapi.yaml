@@ -78,6 +78,7 @@ paths:
                 session_id: "sess_abc123"
                 message: "That sounds serious. Is the water still rising? I'm going to flag this as urgent right now."
                 urgency: "L1_immediate"
+                # L1_immediate | L2_24h_to_48 | L3_more_than_48h
                 conversation_id: "conv_xyz789"
                 action_triggered: "notification_sent"
         '400':
@@ -578,11 +579,11 @@ components:
 
     UrgencyLevel:
       type: string
-      enum: [L1_immediate, L2_within_24h, L3_within_48h]
+      enum: [L1_immediate, L2_24h_to_48, L3_more_than_48h]
       description: >
-        L1 = Immediate emergency (flooding, gas, no water).
-        L2 = Needs attention within 24 hours.
-        L3 = Can be scheduled within 24–48 hours.
+        L1 = Immediate emergency (flooding, gas, no water) — respond now.
+        L2 = Urgent, needs attention within 24–48 hours.
+        L3 = Can be scheduled, more than 48 hours out.
 
     ConversationStatus:
       type: string
@@ -722,7 +723,7 @@ components:
         id:
           type: string
         customer:
-          $ref: '#/components/schemas/ClientInfo'
+          $ref: '#/components/schemas/CustomerInfo'
         urgency:
           allOf:
             - $ref: '#/components/schemas/UrgencyLevel'
@@ -751,7 +752,7 @@ components:
             - $ref: '#/components/schemas/Booking'
           nullable: true
 
-    ClientInfo:
+    CustomerInfo:
       type: object
       properties:
         name:
@@ -978,6 +979,12 @@ components:
         calendly_event_uuid:
           type: string
           nullable: true
+        booked_slot_text:
+          type: string
+          nullable: true
+          description: >
+            Human-readable slot description populated from the Calendly webhook.
+            Example: "Tuesday, June 3, 2026, 2:00 PM – 3:00 PM"
         start_time:
           type: string
           format: date-time

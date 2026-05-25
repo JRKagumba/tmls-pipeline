@@ -56,7 +56,7 @@
 |------|---------|------|
 | **D1-1** | Design business domain entities: `Customer`, `Conversation`, `Quote`, `Booking`, `CalendarSlot`, `Message`, `Agent Turn`. Document relationships, required fields, validation rules. | 25 min |
 | **D1-2** | Design JSON schemas for storage: `interactions.json` structure (sessions, messages, state), `quotes.json` structure (quotes, approvals, versions). Document versioning strategy. | 20 min |
-| **D1-3** | Design observability object models: `AgentTurn`, `ConversationLog`, `ToolCall`, `LLMRequest`, `LLMResponse`. Fields for inputs, outputs, metadata, reasoning, latency, token counts, timestamps. | 20 min |
+| **D1-3** | ~~Observability entity classes~~ -- **Not needed.** MS Agent SDK (Python) manages `AgentTurn`, `ToolCall`, `LLMRequest`, `LLMResponse` internally. `ConversationLog` fields (tokens, latency, model) are captured from SDK callbacks, not custom classes. Document which SDK hooks to use. | 10 min |
 | **D1-4** | Design conversation state machine: states (New, Triaged, Scheduled, Quoted, Approved, Booked, Closed), transitions, terminal states. Diagram state flow. | 15 min |
 
 **Deliverables:** 
@@ -189,7 +189,7 @@
 |------|---------|------|
 | **E4-1** | Implement domain entity classes (Pydantic models from D1): `Customer`, `Conversation`, `Quote`, `Message`, etc. with validation | 30 min |
 | **E4-2** | Implement storage service per D1 schema: `save_session()`, `get_session()`, `list_sessions()`, `save_quote()`, `get_quote()`. Serialize/deserialize to JSON. | 45 min |
-| **E4-3** | Implement CSV calendar loader: parse calendar.csv, build `CalendarSlot` objects (D1 model), offer slots, tentatively reserve per D1 state machine | 30 min |
+| **E4-3** | ~~CSV calendar loader~~ -- **Replaced by Calendly.** No calendar.csv, no CalendarSlot entity. Booking record is created from Calendly `invitee.created` webhook payload. Store: `calendly_event_uri`, `calendly_event_uuid`, `start_time`, `end_time`, `booked_slot_text` (human-readable, e.g. "Tuesday June 3, 2:00 PM"). | 20 min |
 | **E4-4** | Integrate Google Cloud Storage client. Test sync to bucket. Verify data persists across restarts. | 20 min |
 
 **Acceptance:** Write a session to storage, fetch it back. Data matches. Calendar slots work. State machine transitions persist.
@@ -205,7 +205,7 @@
 
 | Task | Details | Est. |
 |------|---------|------|
-| **E5-1** | Implement domain entity classes for observability (D1): `AgentTurn`, `ConversationLog`, `ToolCall`, `LLMRequest`, `LLMResponse` with all fields | 30 min |
+| **E5-1** | ~~Custom observability entity classes~~ -- **Not needed.** Wire MS Agent SDK callbacks to capture turn metadata (tokens, latency, model). Log SDK output into `ConversationLog` record. Document the SDK hooks used. | 20 min |
 | **E5-2** | Implement `utils/logger.py`: structured JSON logging per D1 schema (request ID, timestamp, level, metadata, reasoning, latency) | 30 min |
 | **E5-3** | Add FastAPI middleware for request/response logging + timing per D1 schema | 20 min |
 | **E5-4** | Integrate logger into agent I/O: log every turn, every tool call, LLM requests/responses per D1 observability models | 15 min |
@@ -224,9 +224,9 @@
 | Task | Details | Est. |
 |------|---------|------|
 | **E6-1** | Source plumbing knowledge: hand-craft or scrape 30–50 Q&As (emergency signals, common issues, cost ranges, triage Qs) | 45 min |
-| **E6-2** | Format KB into structured format (YAML/JSON): `{ category, question, answer, keywords, urgency_level }` | 20 min |
-| **E6-3** | Implement `services/knowledge_base.py`: keyword search, simple RAG retrieval | 20 min |
-| **E6-4** | Integrate KB into agent system prompt. Test that agent grounds answers in KB. | 15 min |
+| **E6-2** | ~~Structured YAML/JSON KB + RAG retrieval~~ -- **Replaced by system prompt.** Author knowledge directly as a structured section of the Conversation Agent system prompt. No KB service, no retrieval layer, no keyword search. | 0 min (folded into E6-1) |
+| **E6-3** | Format and inject plumbing knowledge into the Conversation Agent system prompt. Sections: common problems, urgency signals per problem, typical cost ranges (CAD), triage questions to ask. | 20 min |
+| **E6-4** | Test that agent stays grounded: ask edge-case questions, verify agent flags unknowns for Jill rather than guessing. | 15 min |
 
 **Acceptance:** Agent can retrieve relevant knowledge when asked a plumbing question. No hallucinations on facts.
 
@@ -262,7 +262,7 @@
 |------|---------|------|
 | **E8-1** | Chat component per D3 design: message list, input form, send button, typing indicator, loading states, error handling | 45 min |
 | **E8-2** | Wire chat to POST `/chat` endpoint (E3): send user message, display agent response, handle errors per D2 error spec | 30 min |
-| **E8-3** | Session management (frontend): create session on load, store session_id in localStorage, persist across reloads | 20 min |
+| **E8-3** | Session management (frontend): on first `POST /chat`, backend creates session and returns `session_id`. Frontend stores it in memory and includes it on all subsequent turns. **Do not pre-create sessions; do not use localStorage.** | 15 min |
 | **E8-4** | Styling & accessibility per D3 guide: contrast, font sizes, mobile-responsive, keyboard nav, focus states | 20 min |
 
 **Acceptance:** Customer can type message → see agent response. Conversation persists across reloads. Matches D3 design.
@@ -278,8 +278,8 @@
 
 | Task | Details | Est. |
 |------|---------|------|
-| **E9-1** | Implement Triage sub-agent: detect emergency signals (flooding, gas smell, no water, etc.). Classify urgency (CRITICAL/HIGH/NORMAL) per D1 state machine. Use KB (E6). | 45 min |
-| **E9-2** | Test triage on demo scenarios: "Water everywhere" → CRITICAL, "Hot water tank" → NORMAL. Verify classification. | 30 min |
+| **E9-1** | Implement triage logic in the Conversation Agent (not a separate sub-agent -- merged per agent design v3). Detect emergency signals (flooding, gas smell, no water, etc.). Classify urgency continuously as conversation evolves: `L1_immediate`, `L2_24h_to_48`, `L3_more_than_48h`. | 45 min |
+| **E9-2** | Test triage on demo scenarios: "Water everywhere" → `L1_immediate`, "Hot water tank" → `L2_24h_to_48`, "Dishwasher reinstall" → `L3_more_than_48h`. Verify classification. | 30 min |
 | **E9-3** | Ensure urgent conversations are flagged RED in dashboard (E7). Contractor sees immediate alert. | 20 min |
 
 **Acceptance:** Triage reliably detects emergencies per D2 spec. Dashboard shows red badge per D3 design. Agent offers immediate first-step guidance.
@@ -291,16 +291,16 @@
 **Owner:** Joe / Calan  
 **Est. Time:** 1.5–2 hours  
 **Blockers:** E2, E4, D1 (state machine)  
-**Deliverables:** Scheduling sub-agent. CSV calendar parsing. Slot offer + reservation. Confirmation flow.
+**Deliverables:** Scheduling Agent. Calendly link delivery. Webhook handler for `invitee.created` / `invitee.canceled`. Booking record with `booked_slot_text`. Dashboard notification on booking confirmed.
 
 | Task | Details | Est. |
 |------|---------|------|
-| **E10-1** | Create sample CSV calendar per D1 schema: `date, start_time, end_time, label`. 3 days of slots. Document format. | 15 min |
-| **E10-2** | Implement Scheduling sub-agent: offer all slots (urgent) or top 3 slots (non-urgent) per D2 orchestration spec. Format as readable options. | 40 min |
-| **E10-3** | Implement slot selection: customer picks a slot. System tentatively reserves per D1 state machine. Return confirmation. | 30 min |
-| **E10-4** | Test calendar flow: book slot in demo scenario 2 (routine) & 3 (scheduled). Verify state persists per D1 models. | 15 min |
+| **E10-1** | ~~CSV calendar~~ -- **Replaced by Calendly.** Confirm Calendly account is set up: event type created, buffer time set, working hours configured, webhook URL registered. Copy `scheduling_url` and `event_type_uri` into `.env`. | 15 min |
+| **E10-2** | Implement Scheduling Agent: sends `scheduling_url` to customer via chat (with urgency-appropriate framing). For L1 -- send immediately with "book the earliest slot." For L2/L3 -- send after scoping the job. | 30 min |
+| **E10-3** | Implement Calendly webhook handler (`POST /webhooks/calendly`): validate `Calendly-Webhook-Signature`, handle `invitee.created` (create Booking, set `booked_slot_text`, update Project status to Booked, notify dashboard) and `invitee.canceled` (update Booking status to Cancelled). | 40 min |
+| **E10-4** | Test Calendly flow end-to-end in demo scenarios 2 and 3. Verify Booking record created, `booked_slot_text` populated, dashboard shows booking. | 15 min |
 
-**Acceptance:** Agent offers time slots. Customer selects one. Slot marked booked per D1 state machine. Dashboard shows booked time.
+**Acceptance:** Agent sends Calendly link. Customer books via Calendly. Webhook fires, Booking record created with `booked_slot_text`. Project status updated to Booked. Dashboard shows booked time.
 
 ---
 
@@ -563,8 +563,9 @@ IMPLEMENTATION PHASE (Hours 2–7 + Day 2) — PARALLEL BY TEAMS:
      │ MS Agent Framework  │      │ Storage Service      │
      │ - Orchestrator      │      │ - Google Storage GCS │
      │ - Sub-Agents        │      │ - Flat JSON files    │
-     │   * Triage          │      │ - CSV calendar       │
-     │   * Scheduling      │      └──────────────────────┘
+     │   * Conversation    │      └──────────────────────┘
+     │   * Scheduling      │      ┌──────────────────────┐
+     │     (Calendly link) │      │ Calendly API v2      │
      │   * Quote Gen       │
      │ - Session mgmt      │
      │ - LLM calls         │
@@ -625,7 +626,7 @@ tmls-pipeline/
 │   │   ├── agent.py                 # Orchestrator + sub-agents
 │   │   ├── storage.py               # Persistence layer
 │   │   ├── knowledge_base.py         # KB retrieval
-│   │   ├── calendar.py              # CSV calendar
+│   │   ├── calendly.py              # Calendly webhook handler + link delivery
 │   │   └── quoting.py                # Quote generation (E13)
 │   ├── utils/
 │   │   └── logger.py                # Logging utility (E6)
@@ -643,7 +644,7 @@ tmls-pipeline/
 │       └── globals.css
 │
 ├── data/
-│   ├── calendar.csv                 # Sample availability slots
+│   ├── .env.local.example           # CALENDLY_SCHEDULING_URL, CALENDLY_EVENT_TYPE_URI, CALENDLY_WEBHOOK_SECRET
 │   ├── knowledge_base.yaml          # Plumbing Q&As
 │   └── contractor_profile.yaml      # "Steve's Plumbing" info
 │
@@ -662,7 +663,8 @@ tmls-pipeline/
 - **Relationships:** How conversations link to quotes, how bookings reference calendar slots, etc.
 - **Storage schemas:** JSON structure for persistence, versioning approach
 - **Observability:** What gets logged (inputs, outputs, metadata, reasoning, latency, tokens)
-- **State machine:** Conversation lifecycle (New → Triaged → Scheduled → Quoted → Booked → Closed)
+- **State machine:** Conversation lifecycle (new → triaged → scheduled → quoted → booked → closed). Note: "approved" is a Quote status, not a Conversation status.
+- **Urgency levels:** L1_immediate / L2_24h_to_48 / L3_more_than_48h (tracked continuously, not classified once)
 - **Validation rules:** What makes a valid customer, quote, booking, etc.
 
 **Why it matters:** All backend, storage, and logging teams use this single definition. No ambiguity on data flow.
@@ -737,7 +739,7 @@ These decisions are **blocking** — resolve them before Day 1 Hour 1.
 Input: "Water is spraying everywhere, my basement is flooding"
 Expected Behavior:
   ✅ Agent recognizes emergency within first 2 turns
-  ✅ Urgency = CRITICAL
+  ✅ Urgency = L1_immediate
   ✅ Dashboard conversation shows red badge
   ✅ Agent offers immediate first-step advice ("turn off water main")
   ✅ Contractor is notified (dashboard flag or alert)
@@ -750,10 +752,10 @@ Expected Behavior:
 Input: "My hot water tank stopped working"
 Expected Behavior:
   ✅ Agent asks follow-up questions (age, any noises, gas/electric, etc.)
-  ✅ Urgency = NORMAL (not immediate emergency)
-  ✅ Agent offers 3 available appointment slots
-  ✅ Customer selects a slot (e.g., "Tuesday 2–4 PM")
-  ✅ System tentatively books slot
+  ✅ Urgency = L2_24h_to_48
+  ✅ Agent sends Calendly scheduling link
+  ✅ Customer books via Calendly self-serve
+  ✅ Webhook confirms booking, Booking record created with booked_slot_text
   ✅ Agent generates quote (job: water tank repair/replacement, est. cost range)
   ✅ Contractor sees conversation + quote in dashboard
   ✅ Contractor approves quote
@@ -766,9 +768,9 @@ Expected Behavior:
 Input: "I need my dishwasher reinstalled"
 Expected Behavior:
   ✅ Agent gathers scope (current status, timeline preference, etc.)
-  ✅ Urgency = NORMAL
-  ✅ Agent offers 3 available slots
-  ✅ Customer books slot
+  ✅ Urgency = L3_more_than_48h
+  ✅ Agent sends Calendly scheduling link
+  ✅ Customer books via Calendly self-serve
   ✅ Agent generates quote (job scope, estimated labor + parts, cost)
   ✅ Contractor reviews + approves quote
   ✅ Conversation status: New → In Progress → Quoted → Booked

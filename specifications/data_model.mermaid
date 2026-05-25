@@ -10,7 +10,7 @@ direction TB
 	    +String logo_url
     }
 
-    class Client {
+    class Customer {
 	    +String id
 	    +String name
 	    +String email
@@ -45,17 +45,13 @@ direction TB
 
     class Booking {
 	    +String id
+	    +String calendly_event_uri
+	    +String calendly_event_uuid
+	    +String booked_slot_text
+	    +DateTime start_time
+	    +DateTime end_time
 	    +Enum status
 	    +DateTime confirmed_at
-    }
-
-    class CalendarSlot {
-	    +String id
-	    +Date date
-	    +Time start_time
-	    +Time end_time
-	    +String label
-	    +Enum status
     }
 
     class ConversationLog {
@@ -100,13 +96,11 @@ direction TB
 	    +DateTime analyzed_at
     }
 
-    Contractor "1" --> "*" Client : manages
-    Contractor "1" --> "*" CalendarSlot : owns
-    Client "1" --> "*" Project : has
-    Client "1" --> "*" ConversationLog : has
+    Contractor "1" --> "*" Customer : manages
+    Customer "1" --> "*" Project : has
+    Customer "1" --> "*" ConversationLog : has
     ConversationLog "*" ..> "1" Project : initiates
     ConversationLog "1" --> "*" Message : contains
     Project "1" --> "*" Quote : has
     Project "1" --> "0..1" Booking : booked as
-    Booking "1" --> "1" CalendarSlot : reserves
     Message "1" --> "*" Image : contains
