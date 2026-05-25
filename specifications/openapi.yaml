@@ -1,0 +1,1192 @@
+openapi: 3.1.0
+
+info:
+  title: Pipeline API
+  description: >
+    AI-first intake assistant for skilled trades (plumbing demo).
+    FastAPI backend. Single contractor, no auth required for hackathon demo.
+  version: 0.1.0
+  contact:
+    name: Pipeline Hackathon Team
+
+servers:
+  - url: https://api.pipeline.demo
+    description: Production (Cloud Run)
+  - url: http://localhost:8000
+    description: Local development
+
+tags:
+  - name: chat
+    description: Customer conversation — channel-agnostic message endpoint
+  - name: dashboard
+    description: Single polling endpoint for contractor dashboard
+  - name: conversations
+    description: Conversation list, detail, and status management
+  - name: quotes
+    description: Quote lifecycle — create, edit, review
+  - name: callbacks
+    description: Callback request tracking
+  - name: webhooks
+    description: Inbound webhooks from external services
+  - name: contractor
+    description: Contractor profile and system prompt configuration
+  - name: system
+    description: Health check and debug logs
+
+# ─────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────
+
+paths:
+
+  # ── CHAT ──────────────────────────────────
+
+  /chat:
+    post:
+      tags: [chat]
+      summary: Send a customer message
+      description: >
+        Channel-agnostic endpoint. Twilio SMS relay and future channels all
+        POST here. Carries session_id to maintain conversation state across
+        turns. Returns agent response text and any action triggered.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            examples:
+              first_message:
+                summary: First turn — no session_id yet
+                value:
+                  message: "My basement is flooding, water everywhere"
+                  channel: "chat"
+              continuing:
+                summary: Subsequent turn — include session_id
+                value:
+                  session_id: "sess_abc123"
+                  message: "Yes the water is still rising"
+                  channel: "chat"
+      responses:
+        '200':
+          description: Agent response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+              example:
+                session_id: "sess_abc123"
+                message: "That sounds serious. Is the water still rising? I'm going to flag this as urgent right now."
+                urgency: "L1_immediate"
+                conversation_id: "conv_xyz789"
+                action_triggered: "notification_sent"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ── DASHBOARD ─────────────────────────────
+
+  /dashboard:
+    get:
+      tags: [dashboard]
+      summary: Get dashboard summary
+      description: >
+        Single polling endpoint returning all three dashboard sections:
+        quotes pending review, pending callbacks, and recent calendar bookings.
+        Dashboard polls this every 3–5 seconds.
+      responses:
+        '200':
+          description: Dashboard summary with all three sections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+
+  # ── CONVERSATIONS ─────────────────────────
+
+  /conversations:
+    get:
+      tags: [conversations]
+      summary: List conversations
+      description: >
+        List all conversations with summary info. Filterable by status and
+        urgency. Used by the conversation list view on the dashboard.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ConversationStatus'
+        - name: urgency
+          in: query
+          schema:
+            $ref: '#/components/schemas/UrgencyLevel'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Paginated list of conversation summaries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConversationSummary'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+
+  /conversations/{id}:
+    get:
+      tags: [conversations]
+      summary: Get conversation detail
+      description: >
+        Full conversation including transcript, customer info, linked booking,
+        and latest quote version only.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Full conversation detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [conversations]
+      summary: Update conversation status
+      description: Plumber manually updates conversation status, e.g. mark as Closed.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/ConversationStatus'
+      responses:
+        '200':
+          description: Updated conversation summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationSummary'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── QUOTES ────────────────────────────────
+
+  /quotes:
+    post:
+      tags: [quotes]
+      summary: Save a generated quote
+      description: >
+        Called by the Quote Agent to persist a generated quote linked to a
+        conversation. Automatically increments version when a quote already
+        exists for the conversation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteCreate'
+            example:
+              conversation_id: "conv_xyz789"
+              job_description: "Basement flooding — emergency water extraction and pipe inspection"
+              scope: "Emergency call-out, water extraction, locate and assess burst pipe, temporary repair"
+              cost_min: 450.00
+              cost_max: 900.00
+      responses:
+        '201':
+          description: Quote saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /quotes/{id}:
+    get:
+      tags: [quotes]
+      summary: Get a quote
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Quote detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [quotes]
+      summary: Edit a quote
+      description: >
+        Plumber manually adds or edits fields on a quote before approving.
+        Only allowed when quote status is pending_review or revised.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuotePatch'
+      responses:
+        '200':
+          description: Updated quote
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Quote cannot be edited in its current status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /quotes/{id}/review:
+    post:
+      tags: [quotes]
+      summary: Review a quote
+      description: >
+        Plumber approves, revises (with comment), or rejects a quote.
+        Approve triggers email to customer.
+        Revise triggers Quote Agent to regenerate with the comment.
+        Reject flags the conversation for manual follow-up.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteReview'
+            examples:
+              approve:
+                value:
+                  action: "approve"
+              revise:
+                value:
+                  action: "revise"
+                  comment: "Include cost of replacement parts separately. Add GST line."
+              reject:
+                value:
+                  action: "reject"
+                  comment: "Job is too large, referring out."
+      responses:
+        '200':
+          description: Quote updated after review action
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Quote is not in a reviewable state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ── CALLBACKS ─────────────────────────────
+
+  /callbacks:
+    post:
+      tags: [callbacks]
+      summary: Create a callback request
+      description: >
+        Called by the Conversation Agent when the F2 action (call back customer)
+        is determined from triage. Status defaults to requested.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallbackCreate'
+            example:
+              conversation_id: "conv_xyz789"
+              triage_level: "L2_within_24h"
+              service_intent: "Hot water tank inspection — no hot water since this morning"
+              customer_name: "Mike Tremblay"
+              customer_phone: "+14165550123"
+      responses:
+        '201':
+          description: Callback request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Callback'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+    get:
+      tags: [callbacks]
+      summary: List callback requests
+      description: >
+        List callback requests filterable by status.
+        Dashboard uses this for the "callbacks needing attention" section
+        via the /dashboard endpoint, but this endpoint allows direct access.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/CallbackStatus'
+      responses:
+        '200':
+          description: List of callbacks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  callbacks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Callback'
+                  total:
+                    type: integer
+
+  /callbacks/{id}:
+    patch:
+      tags: [callbacks]
+      summary: Update callback status
+      description: >
+        Plumber marks callback as completed or no longer needed after following
+        up with the customer.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/CallbackStatus'
+                notes:
+                  type: string
+                  description: Optional notes from the plumber about the follow-up outcome.
+      responses:
+        '200':
+          description: Updated callback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Callback'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── WEBHOOKS ──────────────────────────────
+
+  /webhooks/calendly:
+    post:
+      tags: [webhooks]
+      summary: Calendly event webhook
+      description: >
+        Receives invitee.created and invitee.canceled events from Calendly.
+        Validates Calendly-Webhook-Signature header before processing.
+        Updates Booking and Project state accordingly.
+        Returns 200 immediately — processing is synchronous for the hackathon.
+      parameters:
+        - name: Calendly-Webhook-Signature
+          in: header
+          required: true
+          description: HMAC signature from Calendly for payload verification.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalendlyWebhookPayload'
+      responses:
+        '200':
+          description: Event received and processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: processed
+        '400':
+          description: Invalid signature or malformed payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ── CONTRACTOR ────────────────────────────
+
+  /contractor:
+    get:
+      tags: [contractor]
+      summary: Get contractor profile and system prompt
+      description: >
+        Returns the single contractor record including the editable system
+        prompt section injected into the Conversation Agent.
+      responses:
+        '200':
+          description: Contractor profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contractor'
+
+    patch:
+      tags: [contractor]
+      summary: Update contractor profile or system prompt
+      description: >
+        Partial update. Plumber can edit the system_prompt to refine agent
+        behaviour over time without a redeploy.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContractorPatch'
+      responses:
+        '200':
+          description: Updated contractor profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contractor'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  # ── SYSTEM ────────────────────────────────
+
+  /health:
+    get:
+      tags: [system]
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /debug/logs:
+    get:
+      tags: [system]
+      summary: Get recent agent turn logs
+      description: >
+        Returns recent agent turn logs for debugging. Dev use only —
+        not exposed or documented for production.
+      parameters:
+        - name: session_id
+          in: query
+          description: Filter logs by session ID.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Recent log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LogEntry'
+                  total:
+                    type: integer
+
+# ─────────────────────────────────────────────
+# COMPONENTS
+# ─────────────────────────────────────────────
+
+components:
+
+  # ── PARAMETERS ────────────────────────────
+
+  parameters:
+    PathId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Resource ID
+
+  # ── SCHEMAS ───────────────────────────────
+
+  schemas:
+
+    # Enums
+
+    UrgencyLevel:
+      type: string
+      enum: [L1_immediate, L2_within_24h, L3_within_48h]
+      description: >
+        L1 = Immediate emergency (flooding, gas, no water).
+        L2 = Needs attention within 24 hours.
+        L3 = Can be scheduled within 24–48 hours.
+
+    ConversationStatus:
+      type: string
+      enum: [new, triaged, scheduled, quoted, booked, closed]
+
+    QuoteStatus:
+      type: string
+      enum: [draft, pending_review, approved, rejected, revised]
+
+    CallbackStatus:
+      type: string
+      enum: [requested, completed, no_longer_needed]
+
+    BookingStatus:
+      type: string
+      enum: [tentative, confirmed, cancelled]
+
+    MessageRole:
+      type: string
+      enum: [customer, agent]
+
+    Channel:
+      type: string
+      enum: [chat, sms, phone]
+
+    ReviewAction:
+      type: string
+      enum: [approve, revise, reject]
+
+    ActionTriggered:
+      type: string
+      nullable: true
+      enum: [none, callback_created, quote_initiated, scheduling_initiated, notification_sent]
+
+    # Chat
+
+    ChatRequest:
+      type: object
+      required: [message]
+      properties:
+        session_id:
+          type: string
+          nullable: true
+          description: >
+            Omit or set null on the first message — the backend creates a new
+            session and returns session_id in the response. Include on all
+            subsequent turns to continue the same conversation.
+        message:
+          type: string
+          description: Customer message text.
+        channel:
+          $ref: '#/components/schemas/Channel'
+          default: chat
+
+    ChatResponse:
+      type: object
+      properties:
+        session_id:
+          type: string
+        message:
+          type: string
+          description: Agent response text.
+        urgency:
+          allOf:
+            - $ref: '#/components/schemas/UrgencyLevel'
+          nullable: true
+          description: Current urgency classification. Null until determined.
+        conversation_id:
+          type: string
+          nullable: true
+          description: Set once the Pipeline conversation record is created.
+        action_triggered:
+          $ref: '#/components/schemas/ActionTriggered'
+
+    # Dashboard
+
+    DashboardSummary:
+      type: object
+      properties:
+        quotes_pending:
+          type: array
+          description: Quotes in pending_review status awaiting plumber action.
+          items:
+            $ref: '#/components/schemas/QuoteSummary'
+        callbacks_pending:
+          type: array
+          description: Callback requests with status requested.
+          items:
+            $ref: '#/components/schemas/CallbackSummary'
+        recent_bookings:
+          type: array
+          description: Bookings confirmed or cancelled in the last 48 hours.
+          items:
+            $ref: '#/components/schemas/BookingSummary'
+        generated_at:
+          type: string
+          format: date-time
+
+    # Conversations
+
+    ConversationSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        customer_name:
+          type: string
+          nullable: true
+        customer_phone:
+          type: string
+          nullable: true
+        problem_summary:
+          type: string
+          description: One-line AI-generated summary of the reported problem.
+          nullable: true
+        urgency:
+          allOf:
+            - $ref: '#/components/schemas/UrgencyLevel'
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ConversationStatus'
+        channel:
+          $ref: '#/components/schemas/Channel'
+        started_at:
+          type: string
+          format: date-time
+        has_quote:
+          type: boolean
+        has_booking:
+          type: boolean
+        has_pending_callback:
+          type: boolean
+
+    ConversationDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        customer:
+          $ref: '#/components/schemas/ClientInfo'
+        urgency:
+          allOf:
+            - $ref: '#/components/schemas/UrgencyLevel'
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ConversationStatus'
+        channel:
+          $ref: '#/components/schemas/Channel'
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        transcript:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        latest_quote:
+          allOf:
+            - $ref: '#/components/schemas/Quote'
+          nullable: true
+        booking:
+          allOf:
+            - $ref: '#/components/schemas/Booking'
+          nullable: true
+
+    ClientInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        role:
+          $ref: '#/components/schemas/MessageRole'
+        content:
+          type: string
+        has_images:
+          type: boolean
+          default: false
+        timestamp:
+          type: string
+          format: date-time
+
+    # Quotes
+
+    QuoteCreate:
+      type: object
+      required: [conversation_id, job_description, scope, cost_min, cost_max]
+      properties:
+        conversation_id:
+          type: string
+        job_description:
+          type: string
+        scope:
+          type: string
+          description: Detailed scope of work.
+        cost_min:
+          type: number
+          format: float
+          description: Low end of cost estimate in CAD.
+        cost_max:
+          type: number
+          format: float
+          description: High end of cost estimate in CAD.
+
+    QuotePatch:
+      type: object
+      description: All fields optional. Only provided fields are updated.
+      properties:
+        job_description:
+          type: string
+        scope:
+          type: string
+        cost_min:
+          type: number
+          format: float
+        cost_max:
+          type: number
+          format: float
+        contractor_comment:
+          type: string
+
+    QuoteReview:
+      type: object
+      required: [action]
+      properties:
+        action:
+          $ref: '#/components/schemas/ReviewAction'
+        comment:
+          type: string
+          description: >
+            Required when action is revise.
+            Optional context when action is reject.
+
+    Quote:
+      type: object
+      properties:
+        id:
+          type: string
+        conversation_id:
+          type: string
+        version:
+          type: integer
+          description: Increments each time the Quote Agent regenerates.
+        job_description:
+          type: string
+        scope:
+          type: string
+        cost_min:
+          type: number
+          format: float
+        cost_max:
+          type: number
+          format: float
+        status:
+          $ref: '#/components/schemas/QuoteStatus'
+        contractor_comment:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    QuoteSummary:
+      type: object
+      description: Lightweight quote info for dashboard pending list.
+      properties:
+        id:
+          type: string
+        conversation_id:
+          type: string
+        customer_name:
+          type: string
+          nullable: true
+        problem_summary:
+          type: string
+          nullable: true
+        cost_min:
+          type: number
+          format: float
+        cost_max:
+          type: number
+          format: float
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    # Callbacks
+
+    CallbackCreate:
+      type: object
+      required: [conversation_id, triage_level, service_intent]
+      properties:
+        conversation_id:
+          type: string
+        triage_level:
+          $ref: '#/components/schemas/UrgencyLevel'
+        service_intent:
+          type: string
+          description: Brief summary of what the customer needs.
+        customer_name:
+          type: string
+          nullable: true
+        customer_phone:
+          type: string
+          nullable: true
+
+    Callback:
+      type: object
+      properties:
+        id:
+          type: string
+        conversation_id:
+          type: string
+        customer_name:
+          type: string
+          nullable: true
+        customer_phone:
+          type: string
+          nullable: true
+        triage_level:
+          $ref: '#/components/schemas/UrgencyLevel'
+        service_intent:
+          type: string
+        status:
+          $ref: '#/components/schemas/CallbackStatus'
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CallbackSummary:
+      type: object
+      description: Lightweight callback info for dashboard pending list.
+      properties:
+        id:
+          type: string
+        customer_name:
+          type: string
+          nullable: true
+        customer_phone:
+          type: string
+          nullable: true
+        triage_level:
+          $ref: '#/components/schemas/UrgencyLevel'
+        service_intent:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # Bookings
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: string
+        conversation_id:
+          type: string
+        calendly_event_uri:
+          type: string
+          nullable: true
+        calendly_event_uuid:
+          type: string
+          nullable: true
+        start_time:
+          type: string
+          format: date-time
+          nullable: true
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/BookingStatus'
+        confirmed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    BookingSummary:
+      type: object
+      description: Lightweight booking info for dashboard recent events list.
+      properties:
+        id:
+          type: string
+        conversation_id:
+          type: string
+        customer_name:
+          type: string
+          nullable: true
+        start_time:
+          type: string
+          format: date-time
+          nullable: true
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/BookingStatus'
+
+    # Calendly Webhook
+
+    CalendlyWebhookPayload:
+      type: object
+      required: [event, payload]
+      properties:
+        event:
+          type: string
+          enum: [invitee.created, invitee.canceled]
+        created_at:
+          type: string
+          format: date-time
+        payload:
+          type: object
+          properties:
+            event:
+              type: object
+              properties:
+                uri:
+                  type: string
+                uuid:
+                  type: string
+                start_time:
+                  type: string
+                  format: date-time
+                end_time:
+                  type: string
+                  format: date-time
+                status:
+                  type: string
+            invitee:
+              type: object
+              properties:
+                uri:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                cancel_url:
+                  type: string
+                reschedule_url:
+                  type: string
+
+    # Contractor
+
+    Contractor:
+      type: object
+      properties:
+        id:
+          type: string
+        business_name:
+          type: string
+        contact_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        license_number:
+          type: string
+          nullable: true
+        logo_url:
+          type: string
+          nullable: true
+        system_prompt:
+          type: string
+          description: >
+            Editable prompt section injected into the Conversation Agent system
+            prompt. Contains plumbing knowledge, business rules, and tone guidance.
+
+    ContractorPatch:
+      type: object
+      description: All fields optional. Only provided fields are updated.
+      properties:
+        business_name:
+          type: string
+        contact_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        license_number:
+          type: string
+        logo_url:
+          type: string
+        system_prompt:
+          type: string
+
+    # Logs
+
+    LogEntry:
+      type: object
+      properties:
+        session_id:
+          type: string
+        turn_number:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        user_input:
+          type: string
+        agent_output:
+          type: string
+        urgency_at_turn:
+          allOf:
+            - $ref: '#/components/schemas/UrgencyLevel'
+          nullable: true
+        action_triggered:
+          $ref: '#/components/schemas/ActionTriggered'
+        latency_ms:
+          type: integer
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        finish_reason:
+          type: string
+          nullable: true
+
+    # Errors
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+          example: not_found
+        message:
+          type: string
+          description: Human-readable error description.
+        detail:
+          type: string
+          nullable: true
+          description: Additional context for debugging.
+
+  # ── RESPONSES ─────────────────────────────
+
+  responses:
+    BadRequest:
+      description: Invalid request payload or missing required fields
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: bad_request
+            message: "Missing required field: session_id"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: not_found
+            message: "Quote not found"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: internal_error
+            message: "Unexpected error processing request"

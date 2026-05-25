@@ -75,11 +75,38 @@ direction TB
 	    +DateTime ended_at
     }
 
+    class Message {
+	    +String id
+	    +String conversation_id
+	    +Enum role
+	    +String content
+	    +Boolean has_images
+	    +DateTime timestamp
+	    +Int token_count
+    }
+
+    class Image {
+	    +String id
+	    +String message_id
+	    +String gcs_path
+	    +String gcs_url
+	    +String filename
+	    +String mime_type
+	    +Int size_bytes
+	    +Enum source
+	    +String ai_description
+	    +Boolean analyzed
+	    +DateTime uploaded_at
+	    +DateTime analyzed_at
+    }
+
     Contractor "1" --> "*" Client : manages
     Contractor "1" --> "*" CalendarSlot : owns
     Client "1" --> "*" Project : has
     Client "1" --> "*" ConversationLog : has
     ConversationLog "*" ..> "1" Project : initiates
+    ConversationLog "1" --> "*" Message : contains
     Project "1" --> "*" Quote : has
     Project "1" --> "0..1" Booking : booked as
     Booking "1" --> "1" CalendarSlot : reserves
+    Message "1" --> "*" Image : contains
