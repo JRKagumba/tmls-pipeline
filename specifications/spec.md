@@ -1,5 +1,5 @@
 # Pipeline -- App Specification
-**Hackathon Draft v0.2 | May 25, 2026**
+**Hackathon Draft v0.3 | May 25, 2026**
 
 ---
 
@@ -20,10 +20,10 @@ Pipeline is an AI-first office assistant for skilled trades small businesses. Th
 | Criterion | How Pipeline addresses it |
 |---|---|
 | Impact / usefulness | Solves a real, high-frequency revenue problem for a large underserved market |
-| Technical execution | Agent orchestration, triage logic, invoice gen, CSV calendar, persistent storage |
+| Technical execution | Agent orchestration, triage logic, invoice gen, Calendly booking, persistent storage |
 | Demo quality | Three scripted scenarios with a live chat UI and contractor dashboard |
 | Novelty / creativity | AI-native from the ground up; no existing product does this end-to-end |
-| Shipping mindset | Scoped hard: one trade, text-first, CSV calendar, three demo scenarios |
+| Shipping mindset | Scoped hard: one trade, text-first, Calendly booking, three demo scenarios |
 
 ---
 
@@ -32,7 +32,7 @@ Pipeline is an AI-first office assistant for skilled trades small businesses. Th
 Three scenarios must work end-to-end for the demo:
 
 1. **Emergency** -- "Water is spraying everywhere, my basement is flooding." Agent detects emergency, escalates immediately, prompts contractor alert, offers to stay on the line for first steps.
-2. **Routine service** -- "My hot water tank stopped working." Agent gathers details, checks availability from CSV, offers appointment window, sends quote via email.
+2. **Routine service** -- "My hot water tank stopped working." Agent gathers details, sends a Calendly booking link, client self-books, agent confirms and sends quote via email.
 3. **Scheduled work** -- "I need my dishwasher reinstalled." Agent scopes the job, collects contact info, books a slot, confirms via email.
 
 ---
@@ -58,16 +58,25 @@ The agent must distinguish between emergency and non-emergency requests and rout
 - Emergency path: notifies contractor immediately (notification mechanism TBD -- at minimum a flagged entry in dashboard), offers interim first-step advice ("turn off the water main")
 - Non-emergency path: proceeds to scheduling and quoting flow
 
-### F3 -- Availability and Scheduling (CSV Calendar)
+### F3 -- Availability and Scheduling (Calendly)
 
-The contractor pre-loads a CSV file representing their available appointment windows. The agent reads this and offers slots to the customer tentatively.  Follows up with plumber before confirming.
+The contractor configures a Calendly event type for their appointment bookings. The agent sends the client a Calendly scheduling link. The client self-books. Calendly notifies the backend via webhook, which updates the project state.
 
-- CSV format: date, start time, end time, slot label (e.g., "morning", "afternoon")
-- For Urgent Agent offers up to next available windows to the customer
-- For non-urgent Agent offers up to 3 available windows to the customer
-- Customer selects a slot; agent tentatively accepts, and puts on dashboard for plumber to confirm
-- Slot is marked as tentatively booked in the system (basic state management)
-- **Optional / V2:** Real Google Calendar integration via a dedicated Google account
+- Agent collects enough context to determine urgency before offering the link
+- For urgent: agent sends the link immediately with a note to book the earliest available slot
+- For non-urgent: agent sends the link after scoping the job
+- Calendly webhook (`invitee.created`) received by FastAPI, updates Booking + Project status to Booked
+- Calendly webhook (`invitee.canceled`) received by FastAPI, resets Booking status to Cancelled
+- Booked slot details (date, time, Calendly event URI) stored in CalendarSlot and shown on dashboard
+- Contractor is notified on dashboard when a booking is confirmed via webhook
+
+**Calendly account setup (must be done before demo):**
+- Create a free Calendly account (Basic plan is sufficient -- 1 event type)
+- Create one event type: e.g., "Plumbing Consultation" -- 60 or 90 min
+- Set buffer time: minimum 30 min after each event (travel time between job sites)
+- Set available hours to realistic working hours (e.g., Mon-Fri 8am-5pm)
+- Register the FastAPI webhook URL in Calendly (requires deployed backend -- not localhost)
+- Copy the `scheduling_url` and `event_type_uri` into the app config / `.env`
 
 ### F4 -- Quote and Invoice Generation
 
@@ -117,7 +126,7 @@ These are explicitly deferred but are in the architecture diagram. Text chat mus
 |---|---|
 | **Phone channel (STT / TTS via Twilio)** | Customer calls a Twilio number. Speech-to-API service converts voice to text, sends to FastAPI backend, response converted back to speech. Requires a Twilio account, a provisioned number, webhook config, and a low-latency STT/TTS model (e.g., Deepgram for STT, ElevenLabs or Google TTS). Do not start this until text chat is done. |
 | **SMS channel (Twilio)** | Customer texts a Twilio number. Twilio webhook delivers message to FastAPI backend. Agent responds via SMS. Same Twilio account as phone, simpler than voice. Still non-trivial to wire -- ngrok or deployed URL needed for webhook. |
-| Real Google Calendar integration | Replace CSV with live Google Calendar read/write via a dedicated contractor Google account |
+| Real-time Calendly availability display | Show available slots inline in chat rather than redirecting to Calendly link. Requires Calendly `GET /event_type_available_times` polling. |
 | Inbound email channel | Customer emails info@[contractor].com, agent processes and responds |
 | Photo / image intake | Customer sends a photo of the problem via SMS MMS. Agent acknowledges and routes image to contractor dashboard. |
 | Multi-trade support | Configuration layer that swaps out the knowledge base and triage questions per trade |
@@ -132,7 +141,7 @@ These are explicitly deferred but are in the architecture diagram. Text chat mus
 - Payment processing
 - Mobile app
 - Any trade other than plumbing
-- Real calendar integration (CSV is MVP)
+- Displaying available slots inline in chat (Calendly link is sufficient for MVP)
 - Compliance / legal disclaimer generation (add a static boilerplate)
 - Invoicing based on actual time spent and parts
 
@@ -147,7 +156,8 @@ These are explicitly deferred but are in the architecture diagram. Text chat mus
 | FR-03 | The agent must classify urgency within the first 2-5 turns |
 | FR-04 | Emergency conversations must be flagged and surfaced immediately in the dashboard |
 | FR-05 | The agent must collect customer name, email, phone, and problem description before closing |
-| FR-06 | The agent must offer available appointment slots from the loaded CSV |
+| FR-06 | The agent must send a Calendly scheduling link to the client at the appropriate point in the conversation |
+| FR-06b | The backend must expose a webhook endpoint to receive Calendly `invitee.created` and `invitee.canceled` events and update booking state accordingly |
 | FR-07 | A quote must be generated and emailed to the customer before the conversation ends |
 | FR-08 | All conversations must be persisted to the database |
 | FR-09 | The contractor dashboard must display all conversations with status and urgency |
@@ -169,7 +179,7 @@ These are explicitly deferred but are in the architecture diagram. Text chat mus
 | NFR-06 | Scoped LLM use | Use a lightweight/fast model for conversation. Reserve heavier reasoning for triage classification and quote generation if needed. |
 | NFR-07 | No auth required for demo | Single contractor context. No login, no multi-tenant. Ship it. |
 | NFR-08 | Graceful fallback | If the agent cannot answer a question, it must say so clearly and offer to have the contractor follow up -- not hallucinate an answer. |
-| NFR-09 | CSV calendar format | Well-documented, simple format. Contractor can edit in Excel. |
+| NFR-09 | Calendly webhook security | Webhook endpoint must validate the `Calendly-Webhook-Signature` header to reject spoofed events. |
 | NFR-10 | Demo stability | The three scripted scenarios must work reliably. No live unknown inputs during the judged demo. |
 | NFR-11 | Debug mode | Logging layer that captures all agent inputs and outputs -- every turn, every tool call, every routing decision. Required for diagnosing failures during the build. |
 | NFR-12 | Single concurrent access | JSON flat files on Google Storage do not support concurrent writes. One active conversation at a time is acceptable for the hackathon demo. Do not attempt parallel sessions without adding a write lock or switching to a DB. |
@@ -199,7 +209,7 @@ Clients
           _______________+_______________
          |               |               |
     Sub-Agents      Calendar access   Model access
-    (Triage,        (flat file / CSV)  (OpenAI or GCP model)
+    (Triage,        (Calendly API)    (OpenAI or GCP model)
      Scheduling,
      Quote Gen,
      FAQ)
@@ -220,7 +230,7 @@ Clients
 | Agent orchestration | MS Agent SDK | Session and thread management |
 | LLM | OpenAI or GCP model | Decide and commit before building. Fast model for conversation; heavier call acceptable for quote gen. |
 | Storage | JSON flat files on Google Storage | Two files: interactions.json, quotes.json |
-| Calendar | CSV flat file | Parsed at startup; booking state written back to file |
+| Calendar | Calendly API v2 | Agent sends scheduling_url to client. Webhook (`invitee.created` / `invitee.canceled`) updates booking state. Requires deployed URL for webhook -- not localhost. |
 | Email | Flat file output (MVP) | Generate a formatted flat file for now. Wire SMTP later. |
 | Voice STT / TTS | [Nice to Have] Speech-to-API service | e.g., Deepgram for STT, ElevenLabs or Google TTS for output |
 | SMS / Phone | [Nice to Have] Twilio | Webhook-based; requires deployed URL, not just localhost |
@@ -240,3 +250,4 @@ Clients
 | 3 | Emergency notification -- dashboard flag only, or something more dramatic for the demo? | A red alert banner or simulated ping would sell the emergency scenario. Worth 30 min if time allows. |
 | 4 | Contractor persona for the demo? | "Steve's Plumbing, serving the GTA since 2003" is 10x more believable on stage than placeholder text. |
 | 5 | Who owns the debug / logging layer? | Build this first. Everything else is harder to fix without it. |
+| 6 | **[BLOCKING] Who creates the Calendly account?** | Needs to be done on Day 1 before any scheduling or webhook work can be tested. Free Basic plan. Set up event type + 30 min travel buffer + working hours. Register webhook URL once backend is deployed. |
