@@ -1,5 +1,5 @@
 # Pipeline -- App Specification
-**Hackathon Draft v0.1 | May 25, 2026**
+**Hackathon Draft v0.2 | May 25, 2026**
 
 ---
 
@@ -53,18 +53,19 @@ The primary interface for the hackathon. Customers interact with the agent via a
 
 The agent must distinguish between emergency and non-emergency requests and route accordingly.
 
-- Detects explicit emergency signals ("flooding", "water everywhere", "no heat", "gas smell")
+- Detects explicit emergency signals ("flooding", "water everywhere", "no water", "no hot water", "gas smell")
 - Detects implicit urgency from tone or description
 - Emergency path: notifies contractor immediately (notification mechanism TBD -- at minimum a flagged entry in dashboard), offers interim first-step advice ("turn off the water main")
 - Non-emergency path: proceeds to scheduling and quoting flow
 
 ### F3 -- Availability and Scheduling (CSV Calendar)
 
-The contractor pre-loads a CSV file representing their available appointment windows. The agent reads this and offers slots to the customer.
+The contractor pre-loads a CSV file representing their available appointment windows. The agent reads this and offers slots to the customer tentatively.  Follows up with plumber before confirming.
 
 - CSV format: date, start time, end time, slot label (e.g., "morning", "afternoon")
-- Agent offers up to 3 available windows to the customer
-- Customer selects a slot; agent confirms
+- For Urgent Agent offers up to next available windows to the customer
+- For non-urgent Agent offers up to 3 available windows to the customer
+- Customer selects a slot; agent tentatively accepts, and puts on dashboard for plumber to confirm
 - Slot is marked as tentatively booked in the system (basic state management)
 - **Optional / V2:** Real Google Calendar integration via a dedicated Google account
 
@@ -72,56 +73,68 @@ The contractor pre-loads a CSV file representing their available appointment win
 
 After scoping the job via conversation, the agent generates a structured quote.
 
-- Quote includes: job description, estimated scope, estimated cost range, contractor name/contact, disclaimer that final price is confirmed on-site
-- Quote is formatted clearly (not a wall of text)
-- Invoice template is available post-job (same structure, with actual amounts)
-- **Delivery:** Quote is emailed to the customer at the email address collected during intake
-
-### F5 -- Email Delivery
-
 - Agent asks for and captures customer email address during intake
+- PDF Quote includes: job description, estimated scope, estimated cost range, contractor name/contact, disclaimer that final price is confirmed on-site
+- sends a SMS and email to plumber that a quote is ready for review
+- plumber can :approve, reject or revise (with a comment) the quote
+- if approved - email quote to client
+- if revised- generate updated qutoe to plumber
+- if rejected - flag on dashbaord for plumber to do manually
+- Quote is formatted clearly (not a wall of text) with a logo, contractor contact info, contractor number
+- **Delivery:** After approved, quote is emailed to the customer at the email address collected during intake
+
 - Sends quote/confirmation email to customer at end of conversation
-- Email includes: appointment slot, job summary, what to expect, contractor contact info
-- Email is triggered automatically -- no manual step by the contractor
+- Email includes: appointment slot, job scope, what to expect, contractor contact info, quoted price
+ 
+### F5 --  Knowledge Base (Plumbing Domain)
 
-### F6 -- RAG Knowledge Base (Plumbing Domain)
+The agent uses a curated knowledge  to answer plumbing-specific questions accurately and stay in scope.
 
-The agent uses a curated knowledge base to answer plumbing-specific questions accurately and stay in scope.
-
-- Knowledge base seeded from a public plumbing resource (scraped for hackathon purposes; production use requires permission)
+- Knowledge base seeded from a public plumbing resource and included in the prompt (scraped for hackathon purposes; production use requires permission)
 - Covers: common plumbing problems, what questions to ask per scenario, typical cost ranges, urgency indicators
-- RAG retrieval keeps responses grounded and avoids hallucination on trade-specific details
-- The knowledge base also drives the triage question set per scenario type
+- knoweledge retrieval keeps responses grounded and avoids hallucination on trade-specific details - any unknowns are flagged and the ai agent will say that it needs to request the plumber to call the client back 
+ 
 
-### F7 -- Contractor Dashboard ("The Pipeline")
+### 6 -- Contractor Dashboard ("The Pipeline")
 
 A simple web view the contractor opens to see their incoming inquiries and current status.
 
 - List of all incoming conversations with: customer name, timestamp, problem summary, urgency flag, status
 - Status values: New, In Progress, Quoted, Booked, Closed
-- Each row expandable to show full conversation transcript and generated quote
+- Each row expandable to show full conversation transcript and generated quote and proposed schedule
 - Emergency-flagged entries are visually distinct (e.g., red badge)
 - Dashboard updates in near-real time (polling acceptable for hackathon)
 - No login/auth required for demo -- single contractor view
+- contractor can edit all of the propmpts to refine over time
 
 ---
 
-## Optional Features (out of scope for hackathon, noted to support architecture decisions)
+## Nice to Have Features (stretch goals -- build only if core is solid)
 
-These are intentionally deferred. They informed design choices (e.g., keeping text as the base layer under voice, keeping channels modular) but are not built.
+These are explicitly deferred but are in the architecture diagram. Text chat must be working end-to-end before any of these are touched. They are designed as layers on top of the core, not replacements for it.
 
 | Feature | Notes |
 |---|---|
-| Voice channel (inbound call, speech-to-text / text-to-speech) | Text is the base layer. Voice is a wrapper. Architecture should not preclude adding it. 11 Labs or similar for TTS quality. Low-latency model selection is a constraint. |
-| Real Google Calendar integration | Replace CSV with live Google Calendar read/write via a dedicated contractor account |
+| **Phone channel (STT / TTS via Twilio)** | Customer calls a Twilio number. Speech-to-API service converts voice to text, sends to FastAPI backend, response converted back to speech. Requires a Twilio account, a provisioned number, webhook config, and a low-latency STT/TTS model (e.g., Deepgram for STT, ElevenLabs or Google TTS). Do not start this until text chat is done. |
+| **SMS channel (Twilio)** | Customer texts a Twilio number. Twilio webhook delivers message to FastAPI backend. Agent responds via SMS. Same Twilio account as phone, simpler than voice. Still non-trivial to wire -- ngrok or deployed URL needed for webhook. |
+| Real Google Calendar integration | Replace CSV with live Google Calendar read/write via a dedicated contractor Google account |
 | Inbound email channel | Customer emails info@[contractor].com, agent processes and responds |
-| Photo / image intake | Customer texts or sends a photo of the problem. WhatsApp API or SMS MMS. Agent acknowledges and routes to contractor. |
-| Multi-trade support | Configuration layer that swaps out the RAG knowledge base and triage question set per trade (electrician, HVAC, carpenter, etc.) |
-| Contractor onboarding questionnaire | 20-question setup flow that generates the contractor's custom FAQ and seeds the RAG |
-| Multi-channel (WhatsApp, SMS) | Extend text chat to WhatsApp Business API or Twilio SMS |
-| Analytics / conversion dashboard | Track inquiry-to-booking conversion rate, response time, revenue influenced |
-| Full invoice workflow | Post-job invoice with actual line items, sent to customer, tracked for payment status |
-| Contractor mobile alert | Push notification or SMS to contractor phone when an emergency is triaged |
+| Photo / image intake | Customer sends a photo of the problem via SMS MMS. Agent acknowledges and routes image to contractor dashboard. |
+| Multi-trade support | Configuration layer that swaps out the knowledge base and triage questions per trade |
+| Contractor onboarding questionnaire | 20-question setup flow that generates a custom FAQ and seeds the RAG |
+| Analytics / conversion dashboard | Inquiry-to-booking conversion rate, response time, revenue influenced |
+| Full invoice workflow | Post-job invoice with actual line items, tracked for payment |
+| Contractor mobile alert | Push notification or SMS to contractor phone on emergency triage |
+
+## Out of Scope (explicitly not in this build)
+
+- Authentication / multi-user / multi-contractor
+- Payment processing
+- Mobile app
+- Any trade other than plumbing
+- Real calendar integration (CSV is MVP)
+- Compliance / legal disclaimer generation (add a static boilerplate)
+- Invoicing based on actual time spent and parts
 
 ---
 
@@ -131,7 +144,7 @@ These are intentionally deferred. They informed design choices (e.g., keeping te
 |---|---|
 | FR-01 | The agent must identify itself as AI at the start of every conversation |
 | FR-02 | The agent must ask plumbing-specific triage questions, not generic ones |
-| FR-03 | The agent must classify urgency within the first 2-3 turns |
+| FR-03 | The agent must classify urgency within the first 2-5 turns |
 | FR-04 | Emergency conversations must be flagged and surfaced immediately in the dashboard |
 | FR-05 | The agent must collect customer name, email, phone, and problem description before closing |
 | FR-06 | The agent must offer available appointment slots from the loaded CSV |
@@ -139,7 +152,7 @@ These are intentionally deferred. They informed design choices (e.g., keeping te
 | FR-08 | All conversations must be persisted to the database |
 | FR-09 | The contractor dashboard must display all conversations with status and urgency |
 | FR-10 | Agent responses must be short and conversational -- no paragraph-length answers |
-| FR-11 | Voice, customer will speak and get answered back both in text and speech |
+| FR-11 | **[Nice to Have]** Voice -- customer will speak and get answered back both in text and speech. Requires STT + TTS service (see Nice to Have section). |
 
 
 ---
@@ -150,51 +163,80 @@ These are intentionally deferred. They informed design choices (e.g., keeping te
 |---|---|---|
 | NFR-01 | Response latency | Agent must respond within 3 seconds for non-voice. No 30-second waits. |
 | NFR-02 | Conversation quality | Short, natural responses. If it sounds like a press-1-for-billing IVR, it has failed. |
-| NFR-03 | Persistence | All conversations, quotes, and emails stored in a lightweight database (SQLite acceptable for hackathon) |
+| NFR-03 | Persistence | All conversations, quotes, and booking state stored in JSON flat files on Google Storage (interactions.json and quotes.json). See NFR-12 re: single concurrent access. |
 | NFR-04 | Modularity | Text is the base. Voice, email, and SMS are channels layered on top. Do not couple channel to logic. |
-| NFR-05 | RAG grounding | Agent must not fabricate plumbing facts. All domain claims should be retrievable from the knowledge base. |
+| NFR-05 | knowledge grounding | Agent must not fabricate plumbing facts. All domain claims should be retrievable from the knowledge base. |
 | NFR-06 | Scoped LLM use | Use a lightweight/fast model for conversation. Reserve heavier reasoning for triage classification and quote generation if needed. |
 | NFR-07 | No auth required for demo | Single contractor context. No login, no multi-tenant. Ship it. |
 | NFR-08 | Graceful fallback | If the agent cannot answer a question, it must say so clearly and offer to have the contractor follow up -- not hallucinate an answer. |
 | NFR-09 | CSV calendar format | Well-documented, simple format. Contractor can edit in Excel. |
 | NFR-10 | Demo stability | The three scripted scenarios must work reliably. No live unknown inputs during the judged demo. |
-| NFR-11 | Debug mode | We need a debug to analyse all the in and out of the agent |
+| NFR-11 | Debug mode | Logging layer that captures all agent inputs and outputs -- every turn, every tool call, every routing decision. Required for diagnosing failures during the build. |
+| NFR-12 | Single concurrent access | JSON flat files on Google Storage do not support concurrent writes. One active conversation at a time is acceptable for the hackathon demo. Do not attempt parallel sessions without adding a write lock or switching to a DB. |
 
 ---
 
-## Architecture Notes (not prescriptive -- for team alignment)
+## Architecture (confirmed from diagram + team decisions)
 
-We are working with GCP
+**Platform:** GCP
 
-- **Orchestrator:**  framework for session and thread management https://learn.microsoft.com/en-us/agent-framework/overview/?pivots=programming-language-python
-- **Plumbing Knowledge** Knwoledge database with be provided in the context window or through function calling if needed
-- **Persistence:** Google storage in JSON
-- **Calendar:** CSV parsed at startup or on request; slot state tracked in DB
-- **Email:** Transactional email via API (SendGrid, Resend, etc.). => generate a flat file for now, we are going to implement a smtp later
-- **Dashboard:** Simple web UI 
-- **LLM selection for reasoning and agent** Fast model for conversation loop; heavier call acceptable for quote generation (async). First version => we will work with openAI or GCP models
-- **Tools for speech to text** We need specific model to translate speech to text and text to speech
+```
+Clients
+  Plumber  -----> Dashboard UI (Next.js)  <-----+
+  Customer -----> Dashboard UI (Next.js)         |
+  Customer -----> [Nice to Have] SMS via Twilio  |
+  Customer -----> [Nice to Have] Phone via Speech-to-API service
+                         |
+                         v
+                  Backend (FastAPI / Python)
+                         |
+                         v
+               MS Agent Orchestrator
+           (session + thread management)
+           https://learn.microsoft.com/en-us/agent-framework
+                    /overview/?pivots=programming-language-python
+                         |
+          _______________+_______________
+         |               |               |
+    Sub-Agents      Calendar access   Model access
+    (Triage,        (flat file / CSV)  (OpenAI or GCP model)
+     Scheduling,
+     Quote Gen,
+     FAQ)
+         |
+    Persistence
+         |
+    Google Storage
+      - interactions.json   (all conversations + messages)
+      - quotes.json         (generated quotes, linked by session ID)
+```
+
+**Confirmed tech decisions:**
+
+| Layer | Technology | Notes |
+|---|---|---|
+| Frontend | Next.js | Dashboard for plumber; also hosts customer chat UI |
+| Backend | FastAPI (Python) | Single entry point for all channels |
+| Agent orchestration | MS Agent SDK | Session and thread management |
+| LLM | OpenAI or GCP model | Decide and commit before building. Fast model for conversation; heavier call acceptable for quote gen. |
+| Storage | JSON flat files on Google Storage | Two files: interactions.json, quotes.json |
+| Calendar | CSV flat file | Parsed at startup; booking state written back to file |
+| Email | Flat file output (MVP) | Generate a formatted flat file for now. Wire SMTP later. |
+| Voice STT / TTS | [Nice to Have] Speech-to-API service | e.g., Deepgram for STT, ElevenLabs or Google TTS for output |
+| SMS / Phone | [Nice to Have] Twilio | Webhook-based; requires deployed URL, not just localhost |
+| Plumbing knowledge | Context window or function call | Provided inline or via RAG retrieval depending on size |
+| Debug / observability | Logging layer | All agent I/O logged per turn. Required. Build this first. |
 
  
 
 ---
 
-## Out of Scope (explicitly not in this build)
-
-- Authentication / multi-user / multi-contractor
-- Payment processing
-- Mobile app
-- Any trade other than plumbing
-- Real calendar integration (CSV is MVP)
-- Compliance / legal disclaimer generation (add a static boilerplate)
-
----
-
 ## Open Questions for the Team
 
-1. What email service are we using for quote delivery? (SendGrid, Resend, etc.)
-2. What is the tech stack? (Python? Node? Framework?)
-3. Who owns the RAG data sourcing -- do we scrape a site or hand-craft a knowledge base?
-4. What is the chat UI? Custom build or embed an existing component?
-5. How do we handle the emergency notification to the contractor for the demo -- dashboard flag only, or do we simulate a push?
-6. Do we have a contractor persona / name for the demo? ("Steve's Plumbing" etc.)
+| # | Question | Why it matters |
+|---|---|---|
+| 1 | OpenAI or GCP model? | Commit before building. Affects prompt style, latency, and cost. |
+| 2 | Who owns knowledge base sourcing? | Scrape a public plumbing site or hand-craft 50 Q&As. Hand-craft = more demo control. |
+| 3 | Emergency notification -- dashboard flag only, or something more dramatic for the demo? | A red alert banner or simulated ping would sell the emergency scenario. Worth 30 min if time allows. |
+| 4 | Contractor persona for the demo? | "Steve's Plumbing, serving the GTA since 2003" is 10x more believable on stage than placeholder text. |
+| 5 | Who owns the debug / logging layer? | Build this first. Everything else is harder to fix without it. |
