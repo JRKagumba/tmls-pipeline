@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 .env
+# Service-account keys and other local secrets — never commit these.
+secrets/
+*-key.json
