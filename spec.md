@@ -20,7 +20,7 @@ Pipeline is an AI-first office assistant for skilled trades small businesses. Th
 | Criterion | How Pipeline addresses it |
 |---|---|
 | Impact / usefulness | Solves a real, high-frequency revenue problem for a large underserved market |
-| Technical execution | Agent orchestration, RAG, triage logic, invoice gen, CSV calendar, persistent storage |
+| Technical execution | Agent orchestration, triage logic, invoice gen, CSV calendar, persistent storage |
 | Demo quality | Three scripted scenarios with a live chat UI and contractor dashboard |
 | Novelty / creativity | AI-native from the ground up; no existing product does this end-to-end |
 | Shipping mindset | Scoped hard: one trade, text-first, CSV calendar, three demo scenarios |
@@ -139,6 +139,8 @@ These are intentionally deferred. They informed design choices (e.g., keeping te
 | FR-08 | All conversations must be persisted to the database |
 | FR-09 | The contractor dashboard must display all conversations with status and urgency |
 | FR-10 | Agent responses must be short and conversational -- no paragraph-length answers |
+| FR-11 | Voice, customer will speak and get answered back both in text and speech |
+
 
 ---
 
@@ -156,18 +158,24 @@ These are intentionally deferred. They informed design choices (e.g., keeping te
 | NFR-08 | Graceful fallback | If the agent cannot answer a question, it must say so clearly and offer to have the contractor follow up -- not hallucinate an answer. |
 | NFR-09 | CSV calendar format | Well-documented, simple format. Contractor can edit in Excel. |
 | NFR-10 | Demo stability | The three scripted scenarios must work reliably. No live unknown inputs during the judged demo. |
+| NFR-11 | Debug mode | We need a debug to analyse all the in and out of the agent |
 
 ---
 
 ## Architecture Notes (not prescriptive -- for team alignment)
 
-- **Orchestrator:** Central agent that routes between triage, scheduling, quoting, and email modules
-- **RAG layer:** Vector store over plumbing knowledge base, queried per conversation turn
-- **Persistence:** Lightweight DB (SQLite or equivalent) stores sessions, messages, quotes, booking state
+We are working with GCP
+
+- **Orchestrator:**  framework for session and thread management https://learn.microsoft.com/en-us/agent-framework/overview/?pivots=programming-language-python
+- **Plumbing Knowledge** Knwoledge database with be provided in the context window or through function calling if needed
+- **Persistence:** Google storage in JSON
 - **Calendar:** CSV parsed at startup or on request; slot state tracked in DB
-- **Email:** Transactional email via API (SendGrid, Resend, etc.)
-- **Dashboard:** Simple web UI polling the DB for conversation state
-- **LLM selection:** Fast model for conversation loop; heavier call acceptable for quote generation (async)
+- **Email:** Transactional email via API (SendGrid, Resend, etc.). => generate a flat file for now, we are going to implement a smtp later
+- **Dashboard:** Simple web UI 
+- **LLM selection for reasoning and agent** Fast model for conversation loop; heavier call acceptable for quote generation (async). First version => we will work with openAI or GCP models
+- **Tools for speech to text** We need specific model to translate speech to text and text to speech
+
+ 
 
 ---
 
@@ -177,7 +185,6 @@ These are intentionally deferred. They informed design choices (e.g., keeping te
 - Payment processing
 - Mobile app
 - Any trade other than plumbing
-- Voice (deferred to V2)
 - Real calendar integration (CSV is MVP)
 - Compliance / legal disclaimer generation (add a static boilerplate)
 
