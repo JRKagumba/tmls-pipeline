@@ -1,7 +1,9 @@
 # Local setup — what to install on your machine
 
 This covers the **one-time setup** to run the "hello world" backend + frontend
-locally. Deployment to Cloud Run is covered separately in [`deploy.md`](./deploy.md).
+locally. Deployment to Cloud Run is covered separately in
+[`deploy_prod.md`](./deploy_prod.md) (production) and
+[`deploy_test.md`](./deploy_test.md) (per-branch preview).
 
 > ✅ When this repo was generated, all the tools below were already detected on
 > this machine, and both services were smoke-tested successfully. This file is
@@ -104,7 +106,8 @@ docker run --rm -p 3000:8080 -e API_URL="http://localhost:8080" frontend-local
 ## 6. Next step → deployment
 
 Everything for the Cloud Run deployment (auth, enabling APIs, `gcloud run deploy`)
-is in [`deploy.md`](./deploy.md). The two lockfiles created above
+is in [`deploy_prod.md`](./deploy_prod.md); per-branch preview deploys are in
+[`deploy_test.md`](./deploy_test.md). The two lockfiles created above
 (`backend/uv.lock`, `frontend/package-lock.json`) **must be committed** — the
 Docker builds depend on them.
 
@@ -134,37 +137,25 @@ That's the only OpenAI requirement. (Make sure the account has billing/credits.)
 
 ### 6.2 GCS bucket + service-account key — where to put it
 
-Run these once (uses the project/region from `deploy.md`):
+The bucket (`gs://tmls-pipeline`) and service account
+(`gcs-pipeline@tmls-agentic-hackathon.iam.gserviceaccount.com`) already exist
+and are IAM-bound — see `deploy_prod.md` §2bis. You do **not** need to run any
+`gcloud storage` / `gcloud iam` commands. For local dev:
 
-```bash
-# 1) Create the bucket (pick a globally-unique name)
-gcloud storage buckets create gs://YOUR_BUCKET_NAME \
-  --project tmls-agentic-hackathon --location northamerica-northeast2
+1. **Ask Emeric** for the JSON key for the `gcs-pipeline` service account
+   (shared via a secure channel — never paste it in chat or commit it).
+2. Save it as `backend/secrets/gcs-key.json` (create the folder if missing —
+   `backend/secrets/` and `*-key.json` are already gitignored *and*
+   `.dockerignore`'d).
+3. Add to `backend/.env`:
+   ```
+   GCS_BUCKET=tmls-pipeline
+   GCS_PREFIX=interactions
+   GOOGLE_APPLICATION_CREDENTIALS=secrets/gcs-key.json
+   ```
 
-# 2) Create a service account for the backend
-gcloud iam service-accounts create pipeline-backend \
-  --project tmls-agentic-hackathon --display-name "Pipeline backend"
-
-# 3) Let it write objects to the bucket
-gcloud storage buckets add-iam-policy-binding gs://YOUR_BUCKET_NAME \
-  --member "serviceAccount:pipeline-backend@tmls-agentic-hackathon.iam.gserviceaccount.com" \
-  --role roles/storage.objectAdmin
-
-# 4) Download a JSON key into a gitignored folder
-mkdir -p backend/secrets
-gcloud iam service-accounts keys create backend/secrets/gcs-key.json \
-  --iam-account pipeline-backend@tmls-agentic-hackathon.iam.gserviceaccount.com
-```
-
-Then set in `backend/.env`:
-```
-GCS_BUCKET=YOUR_BUCKET_NAME
-GCS_PREFIX=interactions
-GOOGLE_APPLICATION_CREDENTIALS=secrets/gcs-key.json
-```
-
-> 🔒 `backend/secrets/` and `*-key.json` are gitignored. **Never commit the key.**
-> If `GCS_BUCKET` is left empty, the chat still works — interactions just aren't stored.
+> 🔒 **Never commit the key.** If `GCS_BUCKET` is left empty, the chat still
+> works — interactions just aren't stored.
 
 ### 6.3 Run it
 
@@ -176,10 +167,10 @@ uv run uvicorn app.main:app --reload --port 8000
 curl -X POST http://localhost:8000/api/chat \
   -H 'content-type: application/json' \
   -d '{"message":"hello"}'
-# -> {"reply":"…","model":"gpt-4o-mini","usage":{…},"latency_ms":…,"stored_path":"gs://…"}
+# -> {"reply":"…","model":"gpt-4o-mini","usage":{…},"latency_ms":…,"stored_path":"gs://tmls-pipeline/…"}
 
 # See stored interactions
-gcloud storage ls gs://YOUR_BUCKET_NAME/interactions/
+gcloud storage ls gs://tmls-pipeline/interactions/
 ```
 
 Then the frontend (`npm run dev`) shows an **“Ask the model”** box under the hello
@@ -187,10 +178,8 @@ message; type a question and press Enter.
 
 ### 6.4 On Cloud Run (no key file)
 
-When deploying, **don't** ship the JSON key. Instead:
-- Grant the Cloud Run runtime service account `roles/storage.objectAdmin` on the bucket.
-- Pass the rest as env vars (or use Secret Manager for `OPENAI_API_KEY`):
-  ```bash
-  gcloud run services update backend --region northamerica-northeast2 \
-    --set-env-vars OPENAI_API_KEY=sk-...,OPENAI_MODEL=gpt-4o-mini,GCS_BUCKET=YOUR_BUCKET_NAME
-  ```
+Don't ship the JSON key to Cloud Run. The deploy uses the runtime service
+account (`gcs-pipeline@…`) for GCS auth via ADC, and Secret Manager
+(`--set-secrets OPENAI_API_KEY=openai-api-key:latest`) for the OpenAI key —
+see [`deploy_prod.md`](./deploy_prod.md) §3a for the exact `gcloud run deploy`
+command.
