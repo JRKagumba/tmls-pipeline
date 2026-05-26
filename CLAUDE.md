@@ -25,15 +25,19 @@ scaffold.
 
 ```
 backend/        FastAPI API (managed with uv)
-  app/main.py     /api/hello (returns the hello message) + / (health check)
-  pyproject.toml, uv.lock, Dockerfile
+  app/main.py     / (health) + /api/hello + POST /api/chat
+  app/agent.py    OpenAI call via Microsoft Agent Framework (run_agent)
+  app/storage.py  best-effort GCS writer for interaction logs (store_interaction)
+  pyproject.toml, uv.lock, Dockerfile, .env.example
 frontend/       Next.js App Router (TypeScript, standalone output)
   app/page.tsx       server component: reads API_URL at request time
-  app/HelloClient.tsx client component: fetches the backend from the browser
+  app/HelloClient.tsx client component: GET /api/hello
+  app/ChatBox.tsx     client component: POST /api/chat (message box)
   package.json, package-lock.json, next.config.js, Dockerfile
-spec.md         Product specification (target app)
-deploy.md       Cloud Run deployment commands (FR)
-local_setup.md  One-time machine setup + local run instructions
+spec.md          Product specification (target app)
+hello_world-v2.md Spec for the chat→OpenAI→GCS slice
+deploy.md        Cloud Run deployment (local dev → deploy → updates, incl. OpenAI/GCS)
+local_setup.md   One-time machine setup + local run instructions
 ```
 
 ## Local development
@@ -69,6 +73,29 @@ npm run dev
   `npm ci`, which require them.
 - **Next.js is pinned to `14.2.x`** (App Router, standalone). Don't bump to a
   major version without intent.
+- **Never commit secrets.** `backend/.env`, `backend/secrets/`, and `*-key.json`
+  are gitignored *and* `.dockerignore`'d. They hold the OpenAI key and the GCS
+  service-account JSON key for **local dev only** — the cloud uses Secret Manager
+  and the runtime service account instead.
+
+## Chat feature env vars (`/api/chat`)
+
+Set in `backend/.env` locally (gitignored; see `backend/.env.example`), or via
+`--set-env-vars` / `--set-secrets` on Cloud Run. Locally the backend loads
+`backend/.env` at startup via `load_dotenv()` in `app/main.py`; in the cloud the
+same variables are injected and read by the same `os.getenv` calls (run uvicorn
+from `backend/` so the file and relative key path resolve). The chat path:
+`ChatBox` → `POST /api/chat` → `app.agent.run_agent` (OpenAI via Agent Framework) →
+`app.storage.store_interaction` (GCS, best-effort) → reply + usage + latency.
+
+- `OPENAI_API_KEY` (required), `OPENAI_MODEL` (default `gpt-4o-mini`).
+- `GCS_BUCKET` (if unset, storage is skipped and chat still works), `GCS_PREFIX`
+  (default `interactions`).
+- `GOOGLE_APPLICATION_CREDENTIALS` — service-account key path, **local dev only**.
+  On Cloud Run, grant the runtime service account `roles/storage.objectAdmin` on
+  the bucket instead of shipping a key.
+- Storage is non-fatal by design: a GCS failure must never break the reply.
+  Full setup steps are in `local_setup.md` Part 2.
 
 ## Deployment
 
@@ -76,3 +103,12 @@ Cloud Run via `gcloud run deploy --source .` (build runs in Cloud Build). Full
 commands are in `deploy.md`. Defaults: project `tmls-agentic-hackathon`, region
 `northamerica-northeast2`. Deploy the **backend first** (to get its URL), then the
 frontend with `API_URL` set to that URL.
+
+Backend deploy specifics (see `deploy.md` §2bis/§3a):
+- `--service-account gcs-pipeline@tmls-agentic-hackathon.iam.gserviceaccount.com` —
+  GCS auth uses this identity via ADC; **no key file in the cloud** (don't set
+  `GOOGLE_APPLICATION_CREDENTIALS`).
+- `--set-secrets OPENAI_API_KEY=openai-api-key:latest` (Secret Manager) plus
+  `--set-env-vars` for `OPENAI_MODEL` / `GCS_BUCKET` / `GCS_PREFIX`.
+- That service account needs `roles/storage.objectAdmin` on `gs://tmls-pipeline`,
+  or storage writes 403 (chat still works; interactions just aren't stored).

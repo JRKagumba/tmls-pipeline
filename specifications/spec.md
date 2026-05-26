@@ -55,7 +55,11 @@ The agent must distinguish between emergency and non-emergency requests and rout
 
 - Detects explicit emergency signals ("flooding", "water everywhere", "no water", "no hot water", "gas smell")
 - Detects implicit urgency from tone or description
-- Emergency path: notifies contractor immediately (notification mechanism TBD -- at minimum a flagged entry in dashboard), offers interim first-step advice ("turn off the water main")
+- Urgency is classified continuously throughout the conversation, not just once at intake
+- **L1_immediate** -- active emergency; notify contractor immediately, offer first-step advice ("turn off the water main")
+- **L2_24h_to_48** -- urgent but not an emergency; needs attention within 24-48 hours
+- **L3_more_than_48h** -- can be scheduled; more than 48 hours out
+- Emergency (L1) path: flags entry in dashboard with red badge, offers first-step advice
 - Non-emergency path: proceeds to scheduling and quoting flow
 
 ### F3 -- Availability and Scheduling (Calendly)
@@ -67,7 +71,7 @@ The contractor configures a Calendly event type for their appointment bookings. 
 - For non-urgent: agent sends the link after scoping the job
 - Calendly webhook (`invitee.created`) received by FastAPI, updates Booking + Project status to Booked
 - Calendly webhook (`invitee.canceled`) received by FastAPI, resets Booking status to Cancelled
-- Booked slot details (date, time, Calendly event URI) stored in CalendarSlot and shown on dashboard
+- Booked slot details (date, time as human-readable text, Calendly event URI) stored on the Booking record and shown on dashboard
 - Contractor is notified on dashboard when a booking is confirmed via webhook
 
 **Calendly account setup (must be done before demo):**

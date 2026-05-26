@@ -1,69 +1,102 @@
-# DEPLOY — opérations (à exécuter manuellement)
+# DEPLOY — operations (run manually)
 
-Toutes les commandes CLI pour : dev local → premier déploiement → mises à jour.
-Le code est déjà généré ; ce fichier ne couvre que le **volet opérations**.
+All the CLI commands for: local dev → first deployment → updates.
+The code is already generated; this file only covers the **operations side**.
 
-> Convention : on suppose la région `europe-west1`. Adapte si besoin.
-> Remplace `YOUR_PROJECT_ID` par l'ID de ton projet GCP.
+> Convention: region `northamerica-northeast2`, project `tmls-agentic-hackathon`.
+> Adapt if needed.
 
 ---
 
-## 0. Prérequis (une seule fois sur ta machine)
+## 0. Prerequisites (once per machine)
 
-- **Docker Desktop** installé (utile pour tester les images en local ; pas obligatoire
-  pour déployer car le build se fait dans le cloud).
-- **gcloud CLI** installé : https://cloud.google.com/sdk/docs/install
-- **Node 18+** pour le frontend, **[uv](https://docs.astral.sh/uv/)** (gère Python) pour le backend.
+- **Docker Desktop** installed (handy for testing images locally; not required to
+  deploy, since the build runs in the cloud).
+- **gcloud CLI** installed: https://cloud.google.com/sdk/docs/install
+- **Node 18+** for the frontend, **[uv](https://docs.astral.sh/uv/)** (manages Python) for the backend.
 
 ```bash
-# Authentification + projet par défaut
+# Authentication + default project
 gcloud auth login
 gcloud config set project tmls-agentic-hackathon
 gcloud config set run/region northamerica-northeast2
 
-# Activer les APIs nécessaires (Cloud Run, Cloud Build, Artifact Registry)
+# Enable the required APIs (Cloud Run, Cloud Build, Artifact Registry,
+# Secret Manager for the OpenAI key)
 gcloud services enable \
   run.googleapis.com \
   cloudbuild.googleapis.com \
-  artifactregistry.googleapis.com
+  artifactregistry.googleapis.com \
+  secretmanager.googleapis.com
 ```
 
 ---
 
-## 1. Dev local (tester la boucle sans Docker)
+## 1. Local dev (test the loop without Docker)
 
-### Backend (terminal 1) — géré avec `uv`
+### Backend (terminal 1) — managed with `uv`
 ```bash
 cd backend
-uv sync                       # crée .venv + génère uv.lock à partir de pyproject.toml
+uv sync                       # creates .venv + generates uv.lock from pyproject.toml
+
+cp .env.example .env          # then fill in the values (see below)
 uv run uvicorn app.main:app --reload --port 8000
 # -> http://localhost:8000/api/hello
+# -> POST http://localhost:8000/api/chat  {"message":"..."}
 ```
 
-> ℹ️ **`uv sync`** aligne `.venv` sur `pyproject.toml`/`uv.lock` : il résout les deps,
-> (re)génère `uv.lock` et installe exactement ces versions dans `.venv`. À lancer :
-> - **la 1ʳᵉ fois** (crée `.venv` + `uv.lock`, requis par le `uv sync --frozen` du Dockerfile) ;
-> - **quand tu modifies une dépendance** (ou après un `git pull` qui change `uv.lock`).
+Fill `backend/.env` with:
+```
+OPENAI_API_KEY=sk-...                     # your OpenAI key
+OPENAI_MODEL=gpt-4o-mini                  # optional (default)
+GCS_BUCKET=tmls-pipeline                  # bucket for interaction logs
+GCS_PREFIX=interactions
+GOOGLE_APPLICATION_CREDENTIALS=secrets/<your-key>.json   # local only
+```
+
+> 🔒 `.env` and the service-account JSON key (`backend/secrets/…json`) are
+> **local only** and gitignored — never commit them. On Cloud Run we use a
+> different mechanism (see §2bis). If `GCS_BUCKET` is empty, chat still works,
+> interactions just aren't stored.
+
+> ℹ️ **How `.env` is used (the mechanism):** at startup `app/main.py` calls
+> `load_dotenv()`, which reads `backend/.env` into the process environment. The
+> code then reads the values with `os.getenv` — `app/agent.py` uses
+> `OPENAI_API_KEY` / `OPENAI_MODEL`, and `app/storage.py` uses `GCS_BUCKET` /
+> `GCS_PREFIX` / `GOOGLE_APPLICATION_CREDENTIALS`. There is no other config file.
+> - `load_dotenv()` looks in the **current directory**, so run uvicorn **from
+>   `backend/`**; that also makes the relative `GOOGLE_APPLICATION_CREDENTIALS=secrets/…json`
+>   path resolve correctly.
+> - **On Cloud Run there is no `.env`** — `load_dotenv()` simply finds nothing, and
+>   the values injected via `--set-env-vars` / `--set-secrets` (§3a) are read by the
+>   exact same `os.getenv` calls. So local and cloud share one code path; only the
+>   source of the variables differs.
+
+> ℹ️ **`uv sync`** aligns `.venv` with `pyproject.toml`/`uv.lock`: it resolves the
+> deps, (re)generates `uv.lock`, and installs exactly those versions into `.venv`.
+> Run it:
+> - **the first time** (creates `.venv` + `uv.lock`, required by the Dockerfile's `uv sync --frozen`);
+> - **whenever you change a dependency** (or after a `git pull` that changes `uv.lock`).
 >
-> Au quotidien, pas besoin de le relancer : `uv run …` re-synchronise l'environnement
-> avant d'exécuter la commande. Le relancer pour rien est inoffensif (quasi-instantané).
-> Commit `pyproject.toml` **et** `uv.lock`.
+> Day to day you don't need to rerun it: `uv run …` re-syncs the environment
+> before running the command. Running it for nothing is harmless (near-instant).
+> Commit `pyproject.toml` **and** `uv.lock`.
 
 ### Frontend (terminal 2)
 ```bash
 cd frontend
-npm install              # génère aussi package-lock.json (requis pour le build Docker)
+npm install              # also generates package-lock.json (required for the Docker build)
 cp .env.local.example .env.local   # API_URL=http://localhost:8000
 npm run dev
-# -> http://localhost:3000  (doit afficher "Hello from FastAPI 👋")
+# -> http://localhost:3000  (should show "Hello from FastAPI 👋")
 ```
 
-> ⚠️ Lance `npm install` **au moins une fois** : il crée `package-lock.json`,
-> indispensable au `npm ci` du Dockerfile. Commit ce fichier.
+> ⚠️ Run `npm install` **at least once**: it creates `package-lock.json`,
+> required by the Dockerfile's `npm ci`. Commit this file.
 
 ---
 
-## 2. (Optionnel) Tester les images Docker en local
+## 2. (Optional) Test the Docker images locally
 
 ```bash
 # Backend
@@ -72,7 +105,7 @@ docker build -t backend-local .
 docker run --rm -p 8080:8080 backend-local
 # -> http://localhost:8080/api/hello
 
-# Frontend (pointant vers le backend local)
+# Frontend (pointing at the local backend)
 cd ../frontend
 docker build -t frontend-local .
 docker run --rm -p 3000:8080 -e API_URL="http://localhost:8080" frontend-local
@@ -81,97 +114,147 @@ docker run --rm -p 3000:8080 -e API_URL="http://localhost:8080" frontend-local
 
 ---
 
-## 3. Premier déploiement sur Cloud Run
+## 2bis. OpenAI + GCS configuration (one-time)
 
-`gcloud run deploy --source .` détecte le `Dockerfile` présent, fait le build via
-Cloud Build, pousse l'image dans Artifact Registry, puis déploie. (Le dépôt
-Artifact Registry `cloud-run-source-deploy` est créé automatiquement à la 1re fois.)
+The backend needs an OpenAI key and write access to the GCS bucket. In the cloud
+we **do not** ship the `.env` or the JSON key — the OpenAI key comes from Secret
+Manager and GCS auth comes from the Cloud Run **runtime service account**.
 
-### 3a. Déployer le backend
+We reuse the existing service account
+`gcs-pipeline@tmls-agentic-hackathon.iam.gserviceaccount.com`.
+
+**1) OpenAI key — create the secret in the GCP Console (manual).**
+In the console → **Secret Manager** → *Create secret* named **`openai-api-key`**,
+and add your OpenAI key as a **secret version** (manage the value and rotations
+there). The deploy references it by name in §3a via `--set-secrets` — no key value
+ever lives in the script.
+
+```bash
+# 2) Let the runtime service account READ that secret
+#    (or grant it on the secret's "Permissions" tab in the console)
+gcloud secrets add-iam-policy-binding openai-api-key \
+  --member="serviceAccount:gcs-pipeline@tmls-agentic-hackathon.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+
+# 3) Let the runtime service account WRITE objects to the bucket
+#    (required for storage to work — locally AND on Cloud Run)
+gcloud storage buckets add-iam-policy-binding gs://tmls-pipeline \
+  --member="serviceAccount:gcs-pipeline@tmls-agentic-hackathon.iam.gserviceaccount.com" \
+  --role="roles/storage.objectAdmin"
+```
+
+> 💡 On Cloud Run, **don't** set `GOOGLE_APPLICATION_CREDENTIALS` and don't ship the
+> key file. Deploying with `--service-account gcs-pipeline@…` makes the storage
+> client authenticate as that account automatically (ADC). The same account is
+> used locally (via the JSON key) and in the cloud (via the attached identity).
+
+---
+
+## 3. First deployment to Cloud Run
+
+`gcloud run deploy --source .` detects the `Dockerfile`, builds via Cloud Build,
+pushes the image to Artifact Registry, then deploys. (The Artifact Registry repo
+`cloud-run-source-deploy` is created automatically the first time.)
+
+### 3a. Deploy the backend
 ```bash
 cd backend
 gcloud run deploy backend \
   --source . \
   --region northamerica-northeast2 \
   --allow-unauthenticated \
-  --set-env-vars ALLOWED_ORIGINS="*"
+  --service-account gcs-pipeline@tmls-agentic-hackathon.iam.gserviceaccount.com \
+  --set-env-vars ALLOWED_ORIGINS="*",OPENAI_MODEL=gpt-4o-mini,GCS_BUCKET=tmls-pipeline,GCS_PREFIX=interactions \
+  --set-secrets OPENAI_API_KEY=openai-api-key:latest
 ```
-👉 **Note l'URL affichée**, ex. `https://backend-689084127939.northamerica-northeast2.run.app`
+👉 **Note the printed URL**, e.g. `https://backend-689084127939.northamerica-northeast2.run.app`
 
-> `ALLOWED_ORIGINS="*"` ouvre le CORS pour démarrer. On le restreindra à l'étape 4.
+> `ALLOWED_ORIGINS="*"` opens CORS to get started; we restrict it in §4.
+> No `GOOGLE_APPLICATION_CREDENTIALS` here — GCS auth comes from `--service-account`.
 
-### 3b. Déployer le frontend (avec l'URL du backend)
+### 3b. Deploy the frontend (with the backend URL)
 ```bash
 cd ../frontend
-npm install   # si pas déjà fait : garantit package-lock.json
+npm install   # if not already done: guarantees package-lock.json
 gcloud run deploy frontend \
   --source . \
   --region northamerica-northeast2 \
   --allow-unauthenticated \
   --set-env-vars API_URL="https://backend-689084127939.northamerica-northeast2.run.app"
 ```
-👉 **Note l'URL du frontend**, ex. `https://frontend-689084127939.northamerica-northeast2.run.app`
-Ouvre-la dans le navigateur : la page doit afficher la réponse du backend. ✅
+👉 **Note the frontend URL**, e.g. `https://frontend-689084127939.northamerica-northeast2.run.app`
+Open it in the browser: the page should show the backend's response. ✅
 
 ---
 
-## 4. (Recommandé) Restreindre le CORS au frontend
+## 4. (Recommended) Restrict CORS to the frontend
 
-Une fois l'URL du frontend connue, remplace le `*` :
+Once the frontend URL is known, replace the `*`:
 ```bash
 gcloud run services update backend \
   --region northamerica-northeast2 \
   --set-env-vars ALLOWED_ORIGINS="https://frontend-689084127939.northamerica-northeast2.run.app"
 ```
 
+> ⚠️ `--set-env-vars` **replaces** the whole env-var set. Re-list the others
+> (`OPENAI_MODEL`, `GCS_BUCKET`, `GCS_PREFIX`) in the same command, or use
+> `--update-env-vars ALLOWED_ORIGINS=…` to change just this one. Secrets set with
+> `--set-secrets` are preserved.
+
 ---
 
-## 5. Mises à jour (redéploiement)
+## 5. Updates (redeploy)
 
-Après chaque modif de code, relance simplement le `deploy` du service concerné :
+After each code change, just rerun the `deploy` for the affected service:
 
 ```bash
-# Backend modifié
+# Backend changed
 cd backend && gcloud run deploy backend --source . --region northamerica-northeast2
 
-# Frontend modifié
+# Frontend changed
 cd frontend && gcloud run deploy frontend --source . --region northamerica-northeast2
 ```
-Les variables d'env déjà définies sont conservées (pas besoin de re-passer
-`--set-env-vars` si elles ne changent pas).
+Env vars, secrets, and the service account already set are preserved (no need to
+re-pass `--set-env-vars` / `--set-secrets` / `--service-account` unless they change).
 
 ---
 
-## 6. Commandes utiles
+## 6. Useful commands
 
 ```bash
-# Lister les services et leurs URLs
+# List services and their URLs
 gcloud run services list --region northamerica-northeast2
 
-# Voir les logs (live)
+# View logs (live)
 gcloud run services logs tail backend  --region northamerica-northeast2
 gcloud run services logs tail frontend --region northamerica-northeast2
 
-# Décrire un service (env vars, image, révision active)
+# Describe a service (env vars, image, active revision)
 gcloud run services describe backend --region northamerica-northeast2
 
-# Supprimer un service
+# Confirm interactions are being written to the bucket
+gcloud storage ls gs://tmls-pipeline/interactions/
+
+# Delete a service
 gcloud run services delete backend  --region northamerica-northeast2
 gcloud run services delete frontend --region northamerica-northeast2
 ```
 
 ---
 
-## Récap des points Docker / Cloud Run importants
+## Recap of the important Docker / Cloud Run points
 
-| Sujet | Ce qu'il faut retenir |
+| Topic | What to remember |
 |---|---|
-| **Port** | Cloud Run injecte `PORT` (8080). Les deux containers écoutent sur `0.0.0.0:8080`. |
-| **Backend** | `uvicorn` lancé en forme *shell* pour substituer `${PORT}`. `/` sert de health check. |
-| **Deps backend** | Gérées par **uv** : `pyproject.toml` + `uv.lock`. Build image via `uv sync --frozen` (binaire `uv` copié depuis l'image officielle astral). |
-| **Frontend** | Build Next.js `output: "standalone"` → image légère lançant `node server.js`. |
-| **API_URL** | Variable **runtime** (pas `NEXT_PUBLIC_`), donc modifiable sans rebuild. |
-| **CORS** | Géré côté FastAPI via `ALLOWED_ORIGINS`. `*` pour démarrer, puis URL du frontend. |
-| **Lockfiles** | Backend : `uv sync` crée `uv.lock` (requis par `uv sync --frozen`). Frontend : `npm install` crée `package-lock.json` (requis par `npm ci`). À committer tous les deux. |
-| **Build** | `--source .` ⇒ build dans Cloud Build à partir du `Dockerfile`. Pas de Docker local requis pour déployer. |
-| **Ordre** | Déployer le **backend d'abord** (pour avoir son URL), puis le frontend. |
+| **Port** | Cloud Run injects `PORT` (8080). Both containers listen on `0.0.0.0:8080`. |
+| **Backend** | `uvicorn` launched in *shell* form to substitute `${PORT}`. `/` is the health check. |
+| **Backend deps** | Managed by **uv**: `pyproject.toml` + `uv.lock`. Image built via `uv sync --frozen` (the `uv` binary is copied from the official Astral image). |
+| **Frontend** | Next.js `output: "standalone"` build → lightweight image running `node server.js`. |
+| **API_URL** | **Runtime** variable (not `NEXT_PUBLIC_`), so it can change without a rebuild. |
+| **CORS** | Handled in FastAPI via `ALLOWED_ORIGINS`. `*` to start, then the frontend URL. |
+| **Secrets / env** | Local: `backend/.env` (gitignored). Cloud: `--set-env-vars` for plain values; the OpenAI key lives in a Secret Manager secret (`openai-api-key`) created/managed in the **console**, and the deploy only references it by name via `--set-secrets OPENAI_API_KEY=openai-api-key:latest`. |
+| **GCS auth** | Local: JSON key via `GOOGLE_APPLICATION_CREDENTIALS`. Cloud: **no key file** — deploy with `--service-account gcs-pipeline@…`; the client uses ADC. |
+| **GCS IAM** | The service account needs `roles/storage.objectAdmin` on `gs://tmls-pipeline` (storage fails with 403 otherwise). |
+| **Lockfiles** | Backend: `uv sync` creates `uv.lock` (required by `uv sync --frozen`). Frontend: `npm install` creates `package-lock.json` (required by `npm ci`). Commit both. |
+| **Build** | `--source .` ⇒ build in Cloud Build from the `Dockerfile`. No local Docker required to deploy. |
+| **Order** | Deploy the **backend first** (to get its URL), then the frontend. |

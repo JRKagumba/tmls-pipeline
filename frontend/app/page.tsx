@@ -1,3 +1,4 @@
+import ChatBox from "./ChatBox";
 import HelloClient from "./HelloClient";
 
 // Read API_URL at request time (not build time) so the backend URL can change
@@ -12,6 +13,7 @@ export default function Page() {
       <h1>Pipeline</h1>
       <p style={{ color: "#555" }}>Frontend ↔ backend connectivity check</p>
       <HelloClient apiUrl={apiUrl} />
+      <ChatBox apiUrl={apiUrl} />
     </main>
   );
 }

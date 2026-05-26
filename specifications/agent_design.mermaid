@@ -1,6 +1,7 @@
-%% Pipeline Agent Design v2
+%% Pipeline Agent Design v3
 %% Intake and Triage merged into single Conversation Agent
 %% Urgency is tracked continuously, not classified once
+%% Labels: L1_immediate / L2_24h_to_48 / L3_more_than_48h
 
 flowchart TB
 
@@ -14,7 +15,7 @@ flowchart TB
 
     subgraph AGENTS["Sub-Agents"]
         direction LR
-        CA["Conversation Agent\n─────────────────────\nFull customer dialogue\nCollects: name, phone,\nemail, problem details\nContinuously updates\nurgency L1 / L2 / L3\nas conversation evolves\nDecides when to hand off"]
+        CA["Conversation Agent\n─────────────────────\nFull customer dialogue\nCollects: name, phone,\nemail, problem details\nContinuously updates\nurgency L1 / L2 / L3\nas conversation evolves\nDecides when to hand off\nor close with no action"]
         NA["Notification Agent\n─────────────\nSMS Jill:\ntriage level +\ncustomer summary +\nservice intent"]
         QA["Quote Agent\n─────────────\nGenerate quote\n→ Jill review\n→ revise loop\n→ email customer\n→ customer approval"]
         SA["Scheduling Agent\n─────────────\nSend Calendly link\n→ customer books\n→ webhook confirms\nbooking or cancel"]
@@ -34,6 +35,8 @@ flowchart TB
         STORE["GCS Storage\ninteractions.json\nquotes.json"]
     end
 
+    TERM["Conversation Closed\nNo Action\n─────────────\nOut of service area\nService not offered\nCustomer disengaged"]
+
     CX -->|message| ORC
     ORC --> CA
     ORC --> NA
@@ -49,10 +52,11 @@ flowchart TB
     SA --> SMS
 
     CA -.->|urgency + context\nready to hand off| ORC
+    CA -.->|out of area / service not offered\nno call to action| TERM
 
     NA -.->|SMS alert| JILL
     QA -.->|quote pending review| DASH
-    SA -.->|booking pending review| DASH
+    SA -.->|booking confirmed via webhook| DASH
     JILL --> DASH
     DASH -->|approve / revise / reject\nresumes orchestrator thread| ORC
 
