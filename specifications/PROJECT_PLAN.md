@@ -23,18 +23,18 @@
 
 | Epic # | Epic Title | Owner | Type | Dependencies | Day | Hours |
 |--------|-----------|-------|------|--------------|-----|-------|
-| **D1** | Domain, Data & Observability Models | Mateen | Design | None | D1 | 1–1.5 |
-| **D2** | API & System Architecture | Jen / Emeric | Design | None | D1 | 1–1.5 |
-| **D3** | Dashboard & Chat UI Design | Calan | Design | None | D1 | 1–1.5 |
-| **E1** | Infrastructure & DevOps Setup | Emeric | Impl | None | D1 | 1–1.5 |
+| **D1** ✅ | Domain, Data & Observability Models | Mateen | Design | None | D1 | DONE |
+| **D2** ✅ | API & System Architecture | Jen / Emeric | Design | None | D1 | DONE |
+| **D3** ✅ | Dashboard & Chat UI Design | Calan | Design | None | D1 | DONE |
+| **E1** ✅ | Infrastructure & DevOps Setup | Emeric | Impl | None | D1 | DONE |
 | **E2** | Agent Architecture Implementation | Calan | Impl | D2, E1 | D1 | 1–2 |
-| **E3** | REST API Implementation (FastAPI) | Backend Lead | Impl | D2, E1 | D1–2 | 2.5–3 |
-| **E4** | Backend Storage & Persistence | Storage Lead | Impl | D1, E1 | D1 | 2.5–3 |
+| **E3** ✅ | REST API Implementation (FastAPI) | Backend Lead | Impl | D2, E1 | D1–2 | DONE |
+| **E4** ✅ | Backend Storage & Persistence | Storage Lead | Impl | D1, E1 | D1 | DONE |
 | **E5** | Logging, Debug & Observability | DevOps/Backend | Impl | D1, E1 | D1 | 1.5–2 |
 | **E6** | Knowledge Base & Domain Logic | Product/Domain Lead | Impl | E1 | D1 | 1.5–2 |
 | **E7** | Dashboard UI Implementation | Frontend Lead | Impl | D3, E3 | D1–2 | 2–3 |
-| **E8** | Chat UI Implementation | Frontend Lead | Impl | D3, E3 | D1–2 | 2–2.5 |
-| **E9** | Triage & Urgency Logic | Joe / Calan | Impl | D2, E2, E6 | D1–2 | 1.5–2 |
+| **E8** ~~Chat UI Implementation~~ | ~~REMOVED — no customer-facing chat UI~~ | — | — | — | — | — |
+| **E9** ✅ | Triage & Urgency Logic | Joe / Calan | Impl | D2, E2, E6 | D1–2 | DONE |
 | **E10** | Scheduling & Calendar Logic | Joe / Calan | Impl | D2, E2, E4 | D1–2 | 1.5–2 |
 | **E11** | Quote Generation & Approval | Joe / Calan | Impl | D2, E2, E6 | D1–2 | 2–2.5 |
 | **E12** | End-to-End Integration & Demo | QA/Integration Lead | Impl | All above | D2 | 3–4 |
@@ -45,7 +45,7 @@
 
 ---
 
-## DESIGN EPIC D1: Domain, Data & Observability Models
+## DESIGN EPIC D1: Domain, Data & Observability Models ✅ DONE
 
 **Owner:** Mateen  
 **Est. Time:** 1–1.5 hours  
@@ -69,7 +69,7 @@
 
 ---
 
-## DESIGN EPIC D2: API & System Architecture
+## DESIGN EPIC D2: API & System Architecture ✅ DONE
 
 **Owner:** Jen / Emeric  
 **Est. Time:** 1–1.5 hours  
@@ -93,7 +93,7 @@
 
 ---
 
-## DESIGN EPIC D3: Dashboard & Chat UI Design
+## DESIGN EPIC D3: Dashboard & Chat UI Design ✅ DONE
 
 **Owner:** Calan  
 **Est. Time:** 1–1.5 hours  
@@ -278,8 +278,8 @@
 
 | Task | Details | Est. |
 |------|---------|------|
-| **E9-1** | Implement triage logic in the Conversation Agent (not a separate sub-agent -- merged per agent design v3). Detect emergency signals (flooding, gas smell, no water, etc.). Classify urgency continuously as conversation evolves: `L1_immediate`, `L2_24h_to_48`, `L3_more_than_48h`. | 45 min |
-| **E9-2** | Test triage on demo scenarios: "Water everywhere" → `L1_immediate`, "Hot water tank" → `L2_24h_to_48`, "Dishwasher reinstall" → `L3_more_than_48h`. Verify classification. | 30 min |
+| **E9-1** | Implement triage logic in the Conversation Agent (merged per agent design v3). Detect emergency signals (flooding, gas smell, no water, etc.). Classify urgency continuously as conversation evolves: `emergency`, `priority`, `scheduled`, `out-of-scope`. | 45 min |
+| **E9-2** | Test triage on demo scenarios: "Water everywhere" → `emergency`, "Hot water tank" → `priority`, "Dishwasher reinstall" → `scheduled`, "I need an electrician" → `out-of-scope`. Verify classification. | 30 min |
 | **E9-3** | Ensure urgent conversations are flagged RED in dashboard (E7). Contractor sees immediate alert. | 20 min |
 
 **Acceptance:** Triage reliably detects emergencies per D2 spec. Dashboard shows red badge per D3 design. Agent offers immediate first-step guidance.
@@ -296,7 +296,7 @@
 | Task | Details | Est. |
 |------|---------|------|
 | **E10-1** | ~~CSV calendar~~ -- **Replaced by Calendly.** Confirm Calendly account is set up: event type created, buffer time set, working hours configured, webhook URL registered. Copy `scheduling_url` and `event_type_uri` into `.env`. | 15 min |
-| **E10-2** | Implement Scheduling Agent: sends `scheduling_url` to customer via chat (with urgency-appropriate framing). For L1 -- send immediately with "book the earliest slot." For L2/L3 -- send after scoping the job. | 30 min |
+| **E10-2** | Implement Scheduling Agent: sends `scheduling_url` to customer via chat (with urgency-appropriate framing). For emergency -- bypass Calendly entirely, alert Jill. For priority -- send link immediately, prompt for earliest slot. For scheduled -- send link after scoping. | 30 min |
 | **E10-3** | Implement Calendly webhook handler (`POST /webhooks/calendly`): validate `Calendly-Webhook-Signature`, handle `invitee.created` (create Booking, set `booked_slot_text`, update Project status to Booked, notify dashboard) and `invitee.canceled` (update Booking status to Cancelled). | 40 min |
 | **E10-4** | Test Calendly flow end-to-end in demo scenarios 2 and 3. Verify Booking record created, `booked_slot_text` populated, dashboard shows booking. | 15 min |
 
@@ -664,7 +664,7 @@ tmls-pipeline/
 - **Storage schemas:** JSON structure for persistence, versioning approach
 - **Observability:** What gets logged (inputs, outputs, metadata, reasoning, latency, tokens)
 - **State machine:** Conversation lifecycle (new → triaged → scheduled → quoted → booked → closed). Note: "approved" is a Quote status, not a Conversation status.
-- **Urgency levels:** L1_immediate / L2_24h_to_48 / L3_more_than_48h (tracked continuously, not classified once)
+- **Urgency levels:** `emergency` / `priority` / `scheduled` / `out-of-scope` (tracked continuously, not classified once). Emergency bypasses normal flow. Priority and scheduled proceed to quoting and booking. Out-of-scope ends conversation with no handoff.
 - **Validation rules:** What makes a valid customer, quote, booking, etc.
 
 **Why it matters:** All backend, storage, and logging teams use this single definition. No ambiguity on data flow.
@@ -739,7 +739,7 @@ These decisions are **blocking** — resolve them before Day 1 Hour 1.
 Input: "Water is spraying everywhere, my basement is flooding"
 Expected Behavior:
   ✅ Agent recognizes emergency within first 2 turns
-  ✅ Urgency = L1_immediate
+  ✅ Urgency = emergency
   ✅ Dashboard conversation shows red badge
   ✅ Agent offers immediate first-step advice ("turn off water main")
   ✅ Contractor is notified (dashboard flag or alert)
@@ -752,7 +752,7 @@ Expected Behavior:
 Input: "My hot water tank stopped working"
 Expected Behavior:
   ✅ Agent asks follow-up questions (age, any noises, gas/electric, etc.)
-  ✅ Urgency = L2_24h_to_48
+  ✅ Urgency = priority
   ✅ Agent sends Calendly scheduling link
   ✅ Customer books via Calendly self-serve
   ✅ Webhook confirms booking, Booking record created with booked_slot_text
@@ -768,7 +768,7 @@ Expected Behavior:
 Input: "I need my dishwasher reinstalled"
 Expected Behavior:
   ✅ Agent gathers scope (current status, timeline preference, etc.)
-  ✅ Urgency = L3_more_than_48h
+  ✅ Urgency = scheduled
   ✅ Agent sends Calendly scheduling link
   ✅ Customer books via Calendly self-serve
   ✅ Agent generates quote (job scope, estimated labor + parts, cost)
