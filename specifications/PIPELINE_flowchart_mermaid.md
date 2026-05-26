@@ -1,52 +1,70 @@
 flowchart LR
 
+    %% =========================
     %% Intake
-    A[Customer texts plumber] --> B[AI answers / intro]
-    B --> C[Customer and AI interact by text]
-    C --> T[Triage occurs here<br/>L1 = Immediate emergency<br/>L2 = 24-48 hours<br/>L3 = More than 48 hours]
+    %% =========================
+    A[Customer texts plumber] --> B[AI intro / greeting]
+    B --> C[AI collects info<br/>name, problem, contact]
+    C --> T[Triage<br/>emergency / priority / scheduled]
 
-    T --> D{AI call to action for Jill?}
+    %% =========================
+    %% Triage routing
+    %% =========================
+    T --> D{Urgency level?}
 
-    D -->|No - out of area or<br/>service not offered| E[AI explains / ends conversation]
+    %% Emergency path (bypasses normal flow)
+    D -->|emergency| E1[Send safety guidance<br/>'If safe, turn off main water valve']
+    E1 --> E2[Alert Jill immediately<br/>dashboard + notification]
+    E2 --> E3[Conversation paused for Jill<br/>status: Emergency / Manual]
 
-    D -->|Yes| F[Determine next action]
+    %% No call-to-action path (terminal)
+    D -->|no actionable intent| N1[Polite close<br/>'Message back if you need plumbing help']
+    N1 --> N2[Status: Closed - No Action<br/>sub-reason: wrong_number / out_of_area /<br/>customer_declined / out_of_scope / spam]
 
-    %% Possible actions
-    F --> F1[Request more info]
-    F --> F2[Call back customer]
-    F --> F3[Provide quote]
-    F --> F4[Book appointment]
+    %% Priority / scheduled continue normal flow
+    D -->|priority / scheduled| F[Customer intent?]
 
-    %% Jill service notification
-    F --> G[AI notifies Jill via SMS<br/>triage level + customer info<br/>+ service intent]
-    G --> H[Jill reviews in dashboard]
+    %% =========================
+    %% Intent split
+    %% =========================
+    F -->|Quote only| Q1[AI generates quote draft]
+    F -->|Appointment only| C1[AI sends Calendly link]
+    F -->|Quote then appointment| Q1
 
-    %% Split by customer need
-    H --> I{Customer wants quote or calendar?}
+    %% =========================
+    %% Quote flow (Jill approves quotes only)
+    %% =========================
+    Q1 --> Q2[Quote status: pending_jill_review]
 
-    %% Quote path
-    I -->|Quote| Q1[AI generates quote]
-    Q1 --> Q2[Quote sent to Jill dashboard for approval]
-    Q2 --> Q3{Jill says?}
+    %% Jill notification fires in parallel with quote generation
+    Q1 -.parallel notify.-> JN[Notify Jill<br/>dashboard entry]
 
-    Q3 -->|Approve| Q4[Email sent to customer]
-    Q4 --> Q5{Customer approves?}
-    Q5 -->|Yes| Q6[Proceed / quote accepted]
-    Q5 -->|No| Q7[Jill follows up with customer]
+    Q2 --> Q3{Jill decision?}
+    Q3 -->|Approve| Q4[Send quote to customer<br/>status: sent_to_customer]
+    Q3 -->|Request revision| Q5[Quote returns to draft<br/>new version]
+    Q5 --> Q1
+    Q3 -->|Reject| Q6[Status: rejected<br/>dashboard manual follow-up]
 
-    Q3 -->|Revise| Q8[Jill adds comment / AI regenerates quote]
-    Q8 --> Q2
+    Q4 --> Q7{Customer decision?}
+    Q7 -->|Accept| Q8[Status: customer_accepted]
+    Q7 -->|Decline| Q9[Status: customer_declined<br/>polite close]
 
-    Q3 -->|Reject| Q9[Jill does not want job / manual process]
+    %% Quote-then-appointment hand-off
+    Q8 --> C1
 
-    %% Calendar path - Calendly
-    I -->|Calendar| C1[AI sends Calendly scheduling link to customer]
-    C1 --> C2{Customer books via Calendly?}
-    C2 -->|Yes - invitee.created webhook| C3[Job booked<br/>Dashboard notified<br/>booked_slot_text saved]
-    C2 -->|No / canceled - invitee.canceled webhook| C4[Jill follows up / manual process]
+    %% =========================
+    %% Calendly flow (NO Jill time approval)
+    %% =========================
+    C1 --> C2[Booking status: link_sent]
 
-    %% Optional connections from earlier action nodes
-    F1 --> G
-    F2 --> G
-    F3 --> Q1
-    F4 --> C1
+    %% Jill notification fires in parallel with link send
+    C1 -.parallel notify.-> JN
+
+    C2 --> C3{Customer action?}
+    C3 -->|Books in Calendly| C4[Webhook: invitee.created<br/>status: booked]
+    C3 -->|Cancels| C5[Webhook: invitee.canceled<br/>status: cancelled]
+    C3 -->|No action| C6[Jill marks manual_follow_up]
+
+    C4 --> C7[Job booked<br/>Jill sees confirmed booking]
+    C5 --> C1
+    C6 --> C1
