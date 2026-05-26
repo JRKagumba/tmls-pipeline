@@ -1,7 +1,7 @@
 %% Pipeline Agent Design v3
 %% Intake and Triage merged into single Conversation Agent
 %% Urgency is tracked continuously, not classified once
-%% Labels: L1_immediate / L2_24h_to_48 / L3_more_than_48h
+%% Labels: emergency / priority / scheduled / out-of-scope
 
 flowchart TB
 
@@ -15,7 +15,7 @@ flowchart TB
 
     subgraph AGENTS["Sub-Agents"]
         direction LR
-        CA["Conversation Agent\n─────────────────────\nFull customer dialogue\nCollects: name, phone,\nemail, problem details\nContinuously updates\nurgency L1 / L2 / L3\nas conversation evolves\nDecides when to hand off\nor close with no action"]
+        CA["Conversation Agent\n─────────────────────\nFull customer dialogue\nCollects: name, phone,\nemail, problem details\nContinuously updates\nurgency: emergency /\npriority / scheduled\nas conversation evolves\nDecides when to hand off\nor close with no action"]
         NA["Notification Agent\n─────────────\nSMS Jill:\ntriage level +\ncustomer summary +\nservice intent"]
         QA["Quote Agent\n─────────────\nGenerate quote\n→ Jill review\n→ revise loop\n→ email customer\n→ customer approval"]
         SA["Scheduling Agent\n─────────────\nSend Calendly link\n→ customer books\n→ webhook confirms\nbooking or cancel"]

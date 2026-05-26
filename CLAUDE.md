@@ -14,12 +14,14 @@ Guidance for Claude Code (and contributors) working in this repo.
 ## Project overview
 
 **Pipeline** is an AI-first intake assistant for skilled-trades small businesses
-(plumbing for the demo) — see `spec.md` for the full product spec.
+(plumbing for the demo) — see `specifications/spec.md` for the full product spec
+and `specifications/PROJECT_PLAN.md` for the epic-level build plan.
 
 **Current state:** a minimal "hello world" two-service app whose only purpose is to
-validate the local dev → GCP Cloud Run deployment loop. None of the product
-features from `spec.md` are implemented yet. The next steps build on top of this
-scaffold.
+validate the local dev → GCP Cloud Run deployment loop, plus a thin chat slice
+(`POST /api/chat` → OpenAI → GCS log). None of the product features from
+`specifications/spec.md` (triage, scheduling, quoting, dashboard, etc.) are
+implemented yet. The next steps build on top of this scaffold.
 
 ## Repo layout
 
@@ -34,11 +36,24 @@ frontend/       Next.js App Router (TypeScript, standalone output)
   app/HelloClient.tsx client component: GET /api/hello
   app/ChatBox.tsx     client component: POST /api/chat (message box)
   package.json, package-lock.json, next.config.js, Dockerfile
-spec.md          Product specification (target app)
-hello_world-v2.md Spec for the chat→OpenAI→GCS slice
-deploy.md        Cloud Run deployment (local dev → deploy → updates, incl. OpenAI/GCS)
-local_setup.md   One-time machine setup + local run instructions
+specifications/  Product + design artifacts (no code)
+  spec.md                       Product specification (target app)
+  PROJECT_PLAN.md               Epic-level breakdown, owners, dependencies
+  openapi.yaml                  Target REST API contract
+  agent_design.mermaid          Agent orchestration diagram
+  data_model.mermaid            Domain entities + relationships
+  PIPELINE_flowchart_mermaid.md End-to-end flow diagram
+hello_world-v2.md Spec for the current chat→OpenAI→GCS slice
+deploy_prod.md    Production Cloud Run deployment (local dev → deploy → updates, incl. OpenAI/GCS)
+deploy_test.md    Per-branch preview Cloud Run deployment (shared SA/secret/bucket, branch-suffixed service names)
+local_setup.md    One-time machine setup + local run instructions
+README.md         Short repo intro
 ```
+
+Note: `specifications/` describes the *target* product. The code under
+`backend/` and `frontend/` currently implements only the hello-world + chat
+slice, so contracts (e.g. `openapi.yaml`) are aspirational until each endpoint
+ships.
 
 ## Local development
 
@@ -100,11 +115,13 @@ from `backend/` so the file and relative key path resolve). The chat path:
 ## Deployment
 
 Cloud Run via `gcloud run deploy --source .` (build runs in Cloud Build). Full
-commands are in `deploy.md`. Defaults: project `tmls-agentic-hackathon`, region
+commands for prod are in `deploy_prod.md`; per-branch preview deploys (own URL,
+shared SA/secret/bucket, branch-suffixed service name and `GCS_PREFIX`) are in
+`deploy_test.md`. Defaults: project `tmls-agentic-hackathon`, region
 `northamerica-northeast2`. Deploy the **backend first** (to get its URL), then the
 frontend with `API_URL` set to that URL.
 
-Backend deploy specifics (see `deploy.md` §2bis/§3a):
+Backend deploy specifics (see `deploy_prod.md` §2bis/§3a):
 - `--service-account gcs-pipeline@tmls-agentic-hackathon.iam.gserviceaccount.com` —
   GCS auth uses this identity via ADC; **no key file in the cloud** (don't set
   `GOOGLE_APPLICATION_CREDENTIALS`).

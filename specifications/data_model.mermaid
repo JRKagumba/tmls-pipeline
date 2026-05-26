@@ -96,11 +96,24 @@ direction TB
 	    +DateTime analyzed_at
     }
 
+    class PipelineTurnLog {
+	    +String id
+	    +String conversation_log_id
+	    +Int turn_number
+	    +Enum sub_agent
+	    +String routing_decision
+	    +Enum state_before
+	    +Enum state_after
+	    +Int latency_ms
+	    +DateTime timestamp
+    }
+
     Contractor "1" --> "*" Customer : manages
     Customer "1" --> "*" Project : has
     Customer "1" --> "*" ConversationLog : has
     ConversationLog "*" ..> "1" Project : initiates
     ConversationLog "1" --> "*" Message : contains
+    ConversationLog "1" --> "*" PipelineTurnLog : logged as
     Project "1" --> "*" Quote : has
     Project "1" --> "0..1" Booking : booked as
     Message "1" --> "*" Image : contains

@@ -77,8 +77,8 @@ paths:
               example:
                 session_id: "sess_abc123"
                 message: "That sounds serious. Is the water still rising? I'm going to flag this as urgent right now."
-                urgency: "L1_immediate"
-                # L1_immediate | L2_24h_to_48 | L3_more_than_48h
+                urgency: "emergency"
+                # emergency | priority | scheduled
                 conversation_id: "conv_xyz789"
                 action_triggered: "notification_sent"
         '400':
@@ -343,7 +343,7 @@ paths:
               $ref: '#/components/schemas/CallbackCreate'
             example:
               conversation_id: "conv_xyz789"
-              triage_level: "L2_within_24h"
+              triage_level: "priority"
               service_intent: "Hot water tank inspection — no hot water since this morning"
               customer_name: "Mike Tremblay"
               customer_phone: "+14165550123"
@@ -579,11 +579,12 @@ components:
 
     UrgencyLevel:
       type: string
-      enum: [L1_immediate, L2_24h_to_48, L3_more_than_48h]
+      enum: [emergency, priority, scheduled, out-of-scope]
       description: >
-        L1 = Immediate emergency (flooding, gas, no water) — respond now.
-        L2 = Urgent, needs attention within 24–48 hours.
-        L3 = Can be scheduled, more than 48 hours out.
+        emergency = Active damage, safety risk, no water, gas smell, sewage backup. Bypasses normal flow, alerts Jill immediately.
+        priority = Uncomfortable or inconvenient but contained (no hot water, slow drain, minor leak). Continues normal flow.
+        scheduled = Planned work (reinstall, replacement, inspection). Standard booking flow.
+        out-of-scope = Wrong trade, out of service area, or safety emergency requiring 911. Agent ends conversation gracefully, no Jill handoff.
 
     ConversationStatus:
       type: string

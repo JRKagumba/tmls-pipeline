@@ -56,11 +56,13 @@ The agent must distinguish between emergency and non-emergency requests and rout
 - Detects explicit emergency signals ("flooding", "water everywhere", "no water", "no hot water", "gas smell")
 - Detects implicit urgency from tone or description
 - Urgency is classified continuously throughout the conversation, not just once at intake
-- **L1_immediate** -- active emergency; notify contractor immediately, offer first-step advice ("turn off the water main")
-- **L2_24h_to_48** -- urgent but not an emergency; needs attention within 24-48 hours
-- **L3_more_than_48h** -- can be scheduled; more than 48 hours out
-- Emergency (L1) path: flags entry in dashboard with red badge, offers first-step advice
-- Non-emergency path: proceeds to scheduling and quoting flow
+- **emergency** -- active damage, safety risk, no water, gas smell, sewage backup. Bypasses normal flow. Jill alerted immediately. Agent offers first-step safety guidance. No Calendly link sent.
+- **priority** -- uncomfortable but contained (no hot water, slow drain, minor leak). Normal flow. Calendly link sent after intake, customer prompted to book earliest slot.
+- **scheduled** -- planned work (reinstall, replacement, inspection). Normal flow. Calendly link sent after scoping.
+- **out-of-scope** -- wrong trade, out of service area, or safety emergency requiring 911. Agent ends conversation gracefully, no Jill notification, status set to `closed`.
+- Emergency path: red badge in dashboard, Jill alerted immediately, no quote or booking initiated
+- Priority / scheduled path: proceeds to quoting and Calendly booking flow
+- Out-of-scope path: agent explains and closes, no further action
 
 ### F3 -- Availability and Scheduling (Calendly)
 

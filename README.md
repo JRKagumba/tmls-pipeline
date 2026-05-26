@@ -22,4 +22,6 @@ when the backend URL changes.
 
 ## Getting Started
 
-See **[DEPLOY.md](https://www.google.com/search?q=./DEPLOY.md)** for all commands (local dev + Cloud Run deployment).
+See **[deploy_prod.md](./deploy_prod.md)** for the production Cloud Run deploy,
+and **[deploy_test.md](./deploy_test.md)** to deploy a branch to its own
+preview URL. Local dev setup lives in **[local_setup.md](./local_setup.md)**.
