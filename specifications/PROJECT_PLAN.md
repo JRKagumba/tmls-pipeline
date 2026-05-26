@@ -21,24 +21,25 @@
 
 ## Epic Summary (Design + Implementation)
 
-| Epic | Title | Owner | Status |
-|------|-------|-------|--------|
-| **D1** | Domain, Data & Observability Models | Mateen | ✅ done |
-| **D2** | API & System Architecture | Jen / Emeric | ✅ done |
-| **D3** | Dashboard & Chat UI Design | Calan / Joe | ✅ done |
-| **E1** | Infrastructure & DevOps Setup | Emeric | ✅ done |
-| **E2** | Agent Architecture Implementation | Emeric or Mateen | 🔴 not started -- blocks E10, E11, E12 |
-| **E3** | REST API Implementation (FastAPI) | Emeric | ✅ done |
-| **E4** | Backend Storage & Persistence | Emeric / Mateen | ✅ done |
-| **E5** | Logging, Debug & Observability | Emeric or Mateen | not started (minimal scope) |
-| **E6** | Knowledge Base & System Prompt | Jen | 🟡 in progress |
-| **E7** | Dashboard UI Implementation | Emeric or Mateen | 🟡 in progress |
-| **E8** | ~~Chat UI~~ | — | removed |
-| **E9** | Triage & Urgency Logic | Joe | ✅ done |
-| **E10** | Scheduling & Calendar Logic | Emeric or Mateen | 🟡 just started (1/4 tasks done) |
-| **E11** | Quote Generation & Approval | Jen | not started |
-| **E12** | End-to-End Integration & Demo | All | 🔴 blocked -- needs E2 + E6 + E10 + E11 |
-| **E13** | Demo Submission | TBD (Calan) | not started |
+| Epic | Title | Owner | Status | Quality |
+|------|-------|-------|--------|---------|
+| **D1** | Domain, Data & Observability Models | Mateen | ✅ done | 🥇 gold |
+| **D2** | API & System Architecture | Jen / Emeric | ✅ done | 🥇 gold |
+| **D3** | Dashboard & Chat UI Design | Calan / Joe | in progress | 🥈 silver -- badge label open |
+| **E1** | Infrastructure & DevOps Setup | Emeric | ✅ done | 🥇 gold |
+| **E2** | Agent Architecture Implementation | Emeric | 🔴 not started -- blocks E10, E11, E12 -- target for today | -- |
+| **E3** | REST API Implementation (FastAPI) | Emeric | designed not built | 🥉 bronze -- scaffold only |
+| **E4** | Backend Storage & Persistence | Mateen | started | 🥉 bronze -- E4-2 missing |
+| **E5** | Logging, Debug & Observability | Emeric | not started (minimal scope) | -- |
+| **E6** | Knowledge Base & System Prompt | Jen | 🟡 in progress -- match top 50 problems in Slack | 🥉 bronze |
+| **E7** | Dashboard UI Implementation | Mateen | 🟡 in progress -- rebuild on updated Calan UI | 🥉 bronze |
+| **E8** | ~~Chat UI~~ | — | removed | -- |
+| **E9** | Triage & Urgency Logic | Joe | ✅ done | 🥇 gold -- tests + demo scenarios |
+| **E10** | Scheduling & Calendar Logic | Emeric or Mateen | 🟡 just started (1/4 tasks done) | 🥉 bronze |
+| **E11** | Quote Generation & Approval | Jen | not started | -- |
+| **E12** | End-to-End Integration & Demo | All | 🔴 blocked -- needs E2 + E6 + E10 + E11 | -- |
+| **E13** | Demo Submission | Joe | not started | -- |
+| **E14** | Voice & Messaging Channel Integration | Mateen | not started (stretch -- after E12) | -- |
 
 ---
 
@@ -107,6 +108,7 @@
 | **D3-2** ✅ | Pipeline view: grouped by Needs you / Customer-side / Booked / Closed. Urgency badges. Inline actions. |
 | **D3-3** ✅ | Conversation detail view: transcript, customer info card, safety escalation notice, action buttons. |
 | **D3-4** ✅ | Component styling: colors, badges, typography. **OPEN: badge labels -- confirm emergency/priority/scheduled vs L0/L1/L2/L3 before Joe builds.** |
+| **D3-5**  | finish design, mockup SMS to plumber | |
 
 **Deliverables:** 
 - Figma link (or equivalent design tool) with all screens
@@ -218,6 +220,8 @@
 | **E6-3** | Format full system prompt: identity + behavior rules, urgency classification definitions, plumbing knowledge, conversation flow rules (collect name/phone/email, flag unknowns for Jill, 3-sentence max). |
 | **E6-4** | Test grounding once E2 is wired: ask edge-case questions, verify agent flags unknowns rather than guessing. |
 | **E6-5** | Contractor persona (Jill's Plumbing) -- Owner: Joe. Commit to `specifications/contractor_persona.md`. Feeds into system prompt + dashboard branding. |
+| **E6-6** | **[Jen]** Merge Joe's `plumbingtriageknowledgebase.md` from his branch into main before using for E6-1. Joe to resolve any git conflicts on his end first. |
+| **E6-7** | **[Jen]** Reconcile service catalogs -- merge `specifications/services_catalog.md` (created Day 2) with any overlapping content in Joe's knowledge base file. One canonical reference, no duplicates. |
 
 ---
 
@@ -268,10 +272,11 @@ No customer-facing chat UI in scope. Session management note for the record: bac
 
 | Task | Details |
 |------|---------|
-| **E10-1** ✅ | Calendly account set up, URL confirmed. Logo: Joe (pending). `scheduling_url` + `event_type_uri` in `.env`. |
+| **E10-1** ✅ | Calendly account set up, URL confirmed. `scheduling_url` + `event_type_uri` in `.env`. |
 | **E10-2** | Scheduling Agent: sends link to customer with urgency-appropriate framing. Emergency bypasses Calendly entirely. |
 | **E10-3** | Calendly webhook handler (`POST /webhooks/calendly`): validate signature, handle `invitee.created` (create Booking, set `booked_slot_text`, update status to Booked) and `invitee.canceled` (status to Cancelled). |
 | **E10-4** | End-to-end test in demo scenarios 2 and 3. |
+| **E10-5** | **[Joe]** Jill's Plumbing logo -- create/source logo asset. Add to Calendly account profile and dashboard branding. |
 
 ---
 
@@ -315,9 +320,10 @@ Scenarios are fully scripted in `specifications/demo_scenarios.md` (Joe). Four s
 
 ## EPIC E13: Demo Submission
 
-**Owner:** TBD (recommend Calan as PM)  
+**Owner:** Joe / Calan  
 **Status:** not started  
-**Blockers:** E12 (need working demo before recording)
+**Blockers:** E12 (need working demo before recording)  
+**Scheduling note:** Calan NOT available Thursday. Joe/Calan sync scheduled Wednesday 9pm for demo and submission alignment.
 
 | Task | Details |
 |------|---------|
@@ -325,7 +331,28 @@ Scenarios are fully scripted in `specifications/demo_scenarios.md` (Joe). Four s
 | **E13-2** | Record demo video: all 4 scenarios or best 2-3 for time. Dashboard + agent conversation visible. |
 | **E13-3** | Draft submission answers: problem statement, technical approach, novelty, impact, team. |
 | **E13-4** | Jen -- digitize pitch/overview PPT slides to mermaid or markdown for submission materials. |
-| **E13-5** | Final review + submit before deadline. |
+| **E13-5** | **[Joe]** Add out-of-scope (4th) scenario to `specifications/demo_scenarios.md`. Same format as existing 3 -- customer input, expected behaviour, E9 JSON output, dashboard state, acceptance criteria. |
+| **E13-6** ✅ | Team emails collected -- already in Slack. |
+| **E13-7** | **[Joe]** Pipeline product branding -- logo or wordmark for the product itself (distinct from Jill's Plumbing logo in E10-5). Used in dashboard header and submission materials. |
+| **E13-8** | Final review + submit before deadline. |
+
+---
+
+## EPIC E14: Voice & Messaging Channel Integration
+
+**Owner:** Mateen to start, Emeric to help and send some ideas
+**Status:** not started -- stretch goal, start only after E12 is green  
+**Blockers:** E2, E3 (agent + API must be working first)  
+**Note:** The backend is channel-agnostic by design. Text, voice, and Telegram all route to the same `POST /chat` endpoint. The work here is the channel adapter layer, not the agent.
+
+| Task | Details |
+|------|---------|
+| **E14-1** | **Investigate Telegram.** Telegram Bot API is free, no Twilio account needed, works over webhooks. Set up a bot via BotFather, wire `POST /webhooks/telegram` to receive messages and reply. Customer texts the bot, backend routes to agent, response goes back via Telegram sendMessage. Fastest channel to ship after text. |
+| **E14-2** | **Web page voice button (browser STT).** Add a microphone button to the dashboard or a simple demo page. Use the browser's native `SpeechRecognition` API (no external service needed for demo) to capture speech, convert to text, POST to `/chat` as a normal message. Play back agent reply as text (TTS optional). Works in Chrome without any API key. |
+| **E14-3** | **Voice with STT/TTS service (if time).** Replace browser STT with Deepgram (STT) for better accuracy. Add ElevenLabs or Google TTS for spoken replies. Requires API keys and slightly more latency budget. Do not start until E14-2 is working. |
+| **E14-4** | **Telegram demo scenario.** Run at least one demo scenario (priority -- hot water tank) end to end via Telegram. Confirm agent replies, Calendly link is clickable in Telegram, quote flow works. |
+
+**Decision point before starting E14-2:** Browser `SpeechRecognition` is Chrome-only and requires HTTPS. For a live demo on a projected screen, test it works in the demo environment before committing.
 
 ---
 
