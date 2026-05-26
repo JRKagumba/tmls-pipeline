@@ -21,23 +21,24 @@
 
 ## Epic Summary (Design + Implementation)
 
-| Epic # | Epic Title | Owner | Type | Dependencies | Day | Hours |
-|--------|-----------|-------|------|--------------|-----|-------|
-| **D1** ✅ | Domain, Data & Observability Models | Mateen | Design | None | D1 | DONE |
-| **D2** ✅ | API & System Architecture | Jen / Emeric | Design | None | D1 | DONE |
-| **D3** ✅ | Dashboard & Chat UI Design | Calan | Design | None | D1 | DONE |
-| **E1** ✅ | Infrastructure & DevOps Setup | Emeric | Impl | None | D1 | DONE |
-| **E2** | Agent Architecture Implementation | Calan | Impl | D2, E1 | D1 | 1–2 |
-| **E3** ✅ | REST API Implementation (FastAPI) | Backend Lead | Impl | D2, E1 | D1–2 | DONE |
-| **E4** ✅ | Backend Storage & Persistence | Storage Lead | Impl | D1, E1 | D1 | DONE |
-| **E5** | Logging, Debug & Observability | DevOps/Backend | Impl | D1, E1 | D1 | 1.5–2 |
-| **E6** | Knowledge Base & Domain Logic | Product/Domain Lead | Impl | E1 | D1 | 1.5–2 |
-| **E7** | Dashboard UI Implementation | Frontend Lead | Impl | D3, E3 | D1–2 | 2–3 |
-| **E8** ~~Chat UI Implementation~~ | ~~REMOVED — no customer-facing chat UI~~ | — | — | — | — | — |
-| **E9** ✅ | Triage & Urgency Logic | Joe / Calan | Impl | D2, E2, E6 | D1–2 | DONE |
-| **E10** | Scheduling & Calendar Logic | Joe / Calan | Impl | D2, E2, E4 | D1–2 | 1.5–2 |
-| **E11** | Quote Generation & Approval | Joe / Calan | Impl | D2, E2, E6 | D1–2 | 2–2.5 |
-| **E12** | End-to-End Integration & Demo | QA/Integration Lead | Impl | All above | D2 | 3–4 |
+| Epic | Title | Owner | Status |
+|------|-------|-------|--------|
+| **D1** | Domain, Data & Observability Models | Mateen | ✅ done |
+| **D2** | API & System Architecture | Jen / Emeric | ✅ done |
+| **D3** | Dashboard & Chat UI Design | Calan / Joe | ✅ done |
+| **E1** | Infrastructure & DevOps Setup | Emeric | ✅ done |
+| **E2** | Agent Architecture Implementation | Emeric or Mateen | 🔴 not started -- blocks E10, E11, E12 |
+| **E3** | REST API Implementation (FastAPI) | Emeric | ✅ done |
+| **E4** | Backend Storage & Persistence | Emeric / Mateen | ✅ done |
+| **E5** | Logging, Debug & Observability | Emeric or Mateen | not started (minimal scope) |
+| **E6** | Knowledge Base & System Prompt | Jen | 🟡 in progress |
+| **E7** | Dashboard UI Implementation | Emeric or Mateen | 🟡 in progress |
+| **E8** | ~~Chat UI~~ | — | removed |
+| **E9** | Triage & Urgency Logic | Joe | ✅ done |
+| **E10** | Scheduling & Calendar Logic | Emeric or Mateen | 🟡 just started (1/4 tasks done) |
+| **E11** | Quote Generation & Approval | Jen | not started |
+| **E12** | End-to-End Integration & Demo | All | 🔴 blocked -- needs E2 + E6 + E10 + E11 |
+| **E13** | Demo Submission | TBD (Calan) | not started |
 
 ---
 
@@ -48,16 +49,16 @@
 ## DESIGN EPIC D1: Domain, Data & Observability Models ✅ DONE
 
 **Owner:** Mateen  
-**Est. Time:** 1–1.5 hours  
+**Status:** ✅ done  
 **Blockers:** None  
-**Deliverables:** Comprehensive data model doc. Object models (Pydantic/dataclasses). Storage schemas. Conversation state machine. Shared understanding across team. Jen owns business object modeling within D1 and shares sample quote/invoice examples.
+**Deliverables:** Comprehensive data model doc. Object models (Pydantic/dataclasses). Storage schemas. Conversation state machine. Shared understanding across team.
 
-| Task | Details | Est. |
-|------|---------|------|
-| **D1-1** | Design business domain entities: `Customer`, `Conversation`, `Quote`, `Booking`, `CalendarSlot`, `Message`, `Agent Turn`. Document relationships, required fields, validation rules. | 25 min |
-| **D1-2** | Design JSON schemas for storage: `interactions.json` structure (sessions, messages, state), `quotes.json` structure (quotes, approvals, versions). Document versioning strategy. | 20 min |
-| **D1-3** | ~~Observability entity classes~~ -- **Not needed.** MS Agent SDK (Python) manages `AgentTurn`, `ToolCall`, `LLMRequest`, `LLMResponse` internally. `ConversationLog` fields (tokens, latency, model) are captured from SDK callbacks, not custom classes. Document which SDK hooks to use. | 10 min |
-| **D1-4** | Design conversation state machine: states (New, Triaged, Scheduled, Quoted, Approved, Booked, Closed), transitions, terminal states. Diagram state flow. | 15 min |
+| Task | Details |
+|------|---------|
+| **D1-1** ✅ | Design business domain entities: `Customer`, `Conversation`, `Quote`, `Booking`, `Message`, `Agent Turn`. Document relationships, required fields, validation rules. |
+| **D1-2** ✅ | Design JSON schemas for storage: `interactions.json` structure (sessions, messages, state), `quotes.json` structure (quotes, approvals, versions). Document versioning strategy. |
+| **D1-3** ✅ | ~~Observability entity classes~~ -- **Not needed.** MS Agent SDK manages internally. SDK callbacks capture tokens, latency, model. |
+| **D1-4** ✅ | Design conversation state machine: states (New, Triaged, Scheduled, Quoted, Approved, Booked, Closed), transitions, terminal states. |
 
 **Deliverables:** 
 - `data_models.md` — comprehensive entity definitions
@@ -72,16 +73,16 @@
 ## DESIGN EPIC D2: API & System Architecture ✅ DONE
 
 **Owner:** Jen / Emeric  
-**Est. Time:** 1–1.5 hours  
-**Blockers:** None (but benefits from D1 review)  
-**Deliverables:** OpenAPI spec. Endpoint contracts. Orchestration choreography. Error handling strategy. Ready for frontend to stub against.
+**Status:** ✅ done  
+**Blockers:** None  
+**Deliverables:** OpenAPI spec. Endpoint contracts. Orchestration choreography. Error handling strategy.
 
-| Task | Details | Est. |
-|------|---------|------|
-| **D2-1** | Design REST API contracts: endpoints (POST `/chat`, GET `/conversations`, GET `/conversations/{id}`, GET `/quotes/{id}`, POST `/quotes/{id}/review`), request/response payloads (using D1 models). | 25 min |
-| **D2-2** | Design error handling & validation: HTTP status codes, error response format, validation rules, edge cases (empty input, timeout, invalid quote ID, etc.). | 20 min |
-| **D2-3** | Design agent orchestration choreography: sub-agent call sequence (Triage → Scheduling → Quote Gen), data passed between agents, how state is maintained across turns. | 20 min |
-| **D2-4** | Generate OpenAPI/Swagger spec document. Create mock endpoint examples. Document rate limits, session ID handling. | 15 min |
+| Task | Details |
+|------|---------|
+| **D2-1** ✅ | REST API contracts: POST `/chat`, GET `/conversations`, GET `/conversations/{id}`, GET `/quotes/{id}`, POST `/quotes/{id}/review`. |
+| **D2-2** 🟡 | Error handling & validation: 400/404/409/422/500 codes + `ErrorResponse` schema defined in `openapi.yaml`. Implementation in `main.py` only has a single 500 handler -- rest not wired yet. Design done, impl incomplete. |
+| **D2-3** ✅ | Agent orchestration choreography: sub-agent call sequence, data flow between agents, session state management. |
+| **D2-4** ✅ | OpenAPI/Swagger spec (`openapi.yaml`). Session ID handling documented. |
 
 **Deliverables:** 
 - `openapi.yaml` — full API spec (importable into Swagger UI)
@@ -95,17 +96,17 @@
 
 ## DESIGN EPIC D3: Dashboard & Chat UI Design ✅ DONE
 
-**Owner:** Calan  
-**Est. Time:** 1–1.5 hours  
+**Owner:** Calan / Joe  
+**Status:** ✅ done -- mockups in `specifications/image.png`, `image (1).png`, `image (2).png`, `image (3).png`  
 **Blockers:** None  
-**Deliverables:** Wireframes/Figma. Component specs. Styling guide. Accessibility checklist. Ready for frontend implementation.
+**Deliverables:** Mockups (Today view, Pipeline view, Conversation detail, Safety escalation view). Joe digitized flow into mermaid.
 
-| Task | Details | Est. |
-|------|---------|------|
-| **D3-1** | Design dashboard layout: contractor view with conversation list (cards showing customer name, timestamp, problem summary, status badge, urgency badge in red for emergency), filter/search UI, conversation detail panel. Responsive mockups. | 30 min |
-| **D3-2** | Design conversation detail view: message transcript, customer info card (name, phone, email), booked slot display, quote display (read-only + approve/reject/revise buttons), action buttons. | 20 min |
-| **D3-3** | Design chat UI: customer-facing message list, input form, typing indicator, loading states, error messages, agent greeting. Responsive on mobile + desktop. | 20 min |
-| **D3-4** | Design component library & styling: colors (emergency red, success green, neutral gray), typography, spacing, accessibility (contrast ratios, focus states). Create CSS framework or Tailwind config. | 15 min |
+| Task | Details |
+|------|---------|
+| **D3-1** ✅ | Dashboard layout: Today view (alert cards, at-a-glance metrics, next up, this week). |
+| **D3-2** ✅ | Pipeline view: grouped by Needs you / Customer-side / Booked / Closed. Urgency badges. Inline actions. |
+| **D3-3** ✅ | Conversation detail view: transcript, customer info card, safety escalation notice, action buttons. |
+| **D3-4** ✅ | Component styling: colors, badges, typography. **OPEN: badge labels -- confirm emergency/priority/scheduled vs L0/L1/L2/L3 before Joe builds.** |
 
 **Deliverables:** 
 - Figma link (or equivalent design tool) with all screens
@@ -122,222 +123,209 @@
 
 ---
 
-## EPIC E1: Infrastructure & DevOps Setup
+## EPIC E1: Infrastructure & DevOps Setup ✅ DONE
 
 **Owner:** Emeric  
-**Est. Time:** 1.5 hours  
-**Blockers:** None  
-**Deliverables:** GCP project ready. Local dev env ready. All team members can clone and run code.
+**Status:** ✅ done  
+**Blockers:** None
 
-| Task | Details | Est. |
-|------|---------|------|
-| **E1-1** | GCP project setup, enable APIs (Cloud Storage), bucket creation | 20 min |
-| **E1-2** | Python venv + base dependencies (FastAPI, uvicorn, GCS client, LLM SDK) | 15 min |
-| **E1-3** | Git repo init, `.gitignore`, README with setup instructions | 10 min |
-| **E1-4** | LLM decision (OpenAI vs GCP). Generate + secure API credentials in `.env.local` | 20 min |
-
-**Acceptance:** `git clone`, `python -m venv venv`, install deps, FastAPI server starts on `localhost:8000`.
+| Task | Details |
+|------|---------|
+| **E1-1** ✅ | GCP project setup, Cloud Storage enabled, bucket created. |
+| **E1-2** ✅ | Python venv + base dependencies (FastAPI, uvicorn, GCS client, LLM SDK). |
+| **E1-3** ✅ | Git repo, `.gitignore`, README. |
+| **E1-4** ✅ | LLM decision: OpenAI. Credentials in `.env.local`. |
+| **E1-5** ✅ | `local_setup.md` exists. `.env.local.example` exists. Not yet tested end-to-end by a fresh clone. |
+| **E1-6** | Model benchmarking: gpt-4o-mini (conversation) vs gpt-4o (quote gen) -- Mateen |
 
 ---
 
 ## EPIC E2: Agent Architecture Implementation
 
-**Owner:** Calan  
-**Est. Time:** 1.5–2 hours  
-**Blockers:** E1, D2 (orchestration choreography)  
-**Deliverables:** Sub-agent implementations. Orchestrator routing logic. Session management. MS Agent SDK integrated. Calan digitizes the whiteboard into a digital if/then/else prompt flow for E2 prompts.
+**Owner:** Emeric or Mateen -- decide at standup  
+**Status:** 🔴 not started -- critical blocker, everything else depends on this  
+**Blockers:** E1 (done), D2 (done)  
+**Reference:** `specifications/agent_design.mermaid` and `PIPELINE_flowchart_mermaid.md` (Joe) -- use these as implementation reference.
 
-| Task | Details | Est. |
-|------|---------|------|
-| **E2-1** | Implement MS Agent SDK setup + session/thread management | 20 min |
-| **E2-2** | Implement Triage Sub-agent stub: accept input, classify urgency, return structured output per D2 spec | 30 min |
-| **E2-3** | Implement Scheduling Sub-agent stub: accept input, offer slots, return structured output per D2 spec | 30 min |
-| **E2-4** | Implement Quote Generator Sub-agent stub: accept input, generate quote object per D2 spec | 25 min |
-| **E2-5** | Implement Main Orchestrator: routing logic per D2 choreography, conversation state machine per D1 design, manage session state | 25 min |
-
-**Acceptance:** Orchestrator accepts message, routes to correct sub-agent, returns response. State machine transitions work. No LLM integration yet (stubs return placeholder responses).
+| Task | Details |
+|------|---------|
+| **E2-1** | MS Agent SDK setup + session/thread management. One thread per conversation = one `session_id`. |
+| **E2-2** | Conversation Agent: full customer dialogue, continuous urgency classification, decides when to hand off. |
+| **E2-3** | Scheduling Agent stub: sends Calendly link with urgency-appropriate framing. |
+| **E2-4** | Quote Generator Agent stub: takes job description + customer info, returns structured Quote. |
+| **E2-5** | Main Orchestrator: routing logic, conversation state machine, session state management. |
 
 ---
 
-## EPIC E3: REST API Implementation (FastAPI)
+## EPIC E3: REST API Implementation (FastAPI) ✅ DONE
 
-**Owner:** Backend Lead  
-**Est. Time:** 2.5–3 hours  
-**Blockers:** E1, D2 (API spec)  
-**Deliverables:** FastAPI server with all endpoints working. Integrated with storage, logging, agent orchestrator, per D2 spec.
+**Owner:** Emeric  
+**Status:** ✅ done  
+**Blockers:** E1 (done), D2 (done)
 
-| Task | Details | Est. |
-|------|---------|------|
-| **E3-1** | FastAPI project skeleton: `main.py`, router structure, middleware for logging per D2 spec | 30 min |
-| **E3-2** | Implement POST `/chat`: accept payload per D2 spec, call agent orchestrator (E2), return response per D2 schema | 45 min |
-| **E3-3** | Implement GET `/conversations`, GET `/conversations/{id}`: fetch from storage per D1 schema, return per D2 spec | 30 min |
-| **E3-4** | Implement GET `/quotes/{id}`, POST `/quotes/{id}/review`: quote retrieval and approval workflow per D2 spec | 30 min |
-| **E3-5** | Wire endpoints to storage (E4), logging (E5), agent orchestrator (E2). End-to-end request → response. Error handling per D2 | 30 min |
-
-**Acceptance:** All endpoints return correct JSON per D2 spec. Requests logged per D1/D5 observability models. No 500 errors on valid input. Error handling works.
+| Task | Details |
+|------|---------|
+| **E3-1** ✅ | FastAPI skeleton: `main.py`, router structure, CORS, logging middleware. |
+| **E3-2** ✅ | POST `/chat`: accepts message, calls agent, returns reply. |
+| **E3-3** ✅ | GET `/conversations`, GET `/conversations/{id}`. |
+| **E3-4** ✅ | GET `/quotes/{id}`, POST `/quotes/{id}/review`. |
+| **E3-5** ✅ | Wired to storage and agent orchestrator. Error handling in place. |
 
 ---
 
-## EPIC E4: Backend Storage & Persistence
+## EPIC E4: Backend Storage & Persistence ✅ DONE
 
-**Owner:** Storage Lead  
-**Est. Time:** 2.5–3 hours  
-**Blockers:** E1, D1 (data models)  
-**Deliverables:** Storage service. JSON/CSV handling. Google Storage integration. Data persists.
+**Owner:** Emeric / Mateen  
+**Status:** ✅ done  
+**Blockers:** E1 (done), D1 (done)
 
-| Task | Details | Est. |
-|------|---------|------|
-| **E4-1** | Implement domain entity classes (Pydantic models from D1): `Customer`, `Conversation`, `Quote`, `Message`, etc. with validation | 30 min |
-| **E4-2** | Implement storage service per D1 schema: `save_session()`, `get_session()`, `list_sessions()`, `save_quote()`, `get_quote()`. Serialize/deserialize to JSON. | 45 min |
-| **E4-3** | ~~CSV calendar loader~~ -- **Replaced by Calendly.** No calendar.csv, no CalendarSlot entity. Booking record is created from Calendly `invitee.created` webhook payload. Store: `calendly_event_uri`, `calendly_event_uuid`, `start_time`, `end_time`, `booked_slot_text` (human-readable, e.g. "Tuesday June 3, 2:00 PM"). | 20 min |
-| **E4-4** | Integrate Google Cloud Storage client. Test sync to bucket. Verify data persists across restarts. | 20 min |
-
-**Acceptance:** Write a session to storage, fetch it back. Data matches. Calendar slots work. State machine transitions persist.
+| Task | Details |
+|------|---------|
+| **E4-1** ✅ | Pydantic domain entity classes: `Customer`, `Conversation`, `Quote`, `Message`, etc. |
+| **E4-2** 🔴 | Storage service methods NOT built. Current `storage.py` writes individual JSON blobs only. Missing: `save_session()`, `get_session()`, `list_sessions()`, `save_quote()`, `get_quote()`. Needs implementation. |
+| **E4-3** ✅ | ~~CSV calendar~~ -- replaced by Calendly. Booking record created from `invitee.created` webhook. Fields: `calendly_event_uri`, `calendly_event_uuid`, `start_time`, `end_time`, `booked_slot_text`. |
+| **E4-4** ✅ | GCS client integrated (`google.cloud.storage`). Writes JSON blobs to bucket. Working in `storage.py`. |
 
 ---
 
 ## EPIC E5: Logging, Debug & Observability
 
-**Owner:** DevOps / Backend Lead  
-**Est. Time:** 1.5–2 hours  
-**Blockers:** E1, D1 (observability models)  
-**Deliverables:** Structured logging. Agent I/O capture. HTTP request logging. Queryable, readable logs.
+**Owner:** Emeric or Mateen  
+**Status:** not started (minimal scope -- keep lean)  
+**Blockers:** E1 (done)  
+**Note:** Basic structured logging is sufficient. Every agent turn + routing decision logged to stdout. Debug panel (E7-6) covers demo-time visibility.
 
-| Task | Details | Est. |
-|------|---------|------|
-| **E5-1** | ~~Custom observability entity classes~~ -- **Not needed.** Wire MS Agent SDK callbacks to capture turn metadata (tokens, latency, model). Log SDK output into `ConversationLog` record. Document the SDK hooks used. | 20 min |
-| **E5-2** | Implement `utils/logger.py`: structured JSON logging per D1 schema (request ID, timestamp, level, metadata, reasoning, latency) | 30 min |
-| **E5-3** | Add FastAPI middleware for request/response logging + timing per D1 schema | 20 min |
-| **E5-4** | Integrate logger into agent I/O: log every turn, every tool call, LLM requests/responses per D1 observability models | 15 min |
-
-**Acceptance:** Every HTTP request logged per D1 schema. Every agent turn logged with inputs, outputs, metadata, latency. Logs are readable JSON, searchable by request ID.
+| Task | Details |
+|------|---------|
+| **E5-1** | ~~Custom observability classes~~ -- not needed. Wire MS Agent SDK callbacks to capture tokens, latency, model. |
+| **E5-2** | `utils/logger.py`: structured JSON logging (request ID, timestamp, level, latency). |
+| **E5-3** | FastAPI middleware: log every request/response + timing. |
+| **E5-4** | Wire logger into agent I/O: every turn, every routing decision logged. |
 
 ---
 
-## EPIC E6: Knowledge Base & Domain Logic
+## EPIC E6: Knowledge Base & System Prompt
 
-**Owner:** Product / Domain Lead  
-**Est. Time:** 1.5–2 hours  
-**Blockers:** E1  
-**Deliverables:** Plumbing knowledge base (30–50 Q&As). Retrieval function. Integrated into agent prompts.
+**Owner:** Jen  
+**Status:** 🟡 in progress  
+**Blockers:** None (write now, wire in when E2 is ready)  
+**Deliverable:** `specifications/system_prompt_draft.md` -- handed to E2 owner to drop into agent `instructions=`.
 
-| Task | Details | Est. |
-|------|---------|------|
-| **E6-1** | Source plumbing knowledge: hand-craft or scrape 30–50 Q&As (emergency signals, common issues, cost ranges, triage Qs) | 45 min |
-| **E6-2** | ~~Structured YAML/JSON KB + RAG retrieval~~ -- **Replaced by system prompt.** Author knowledge directly as a structured section of the Conversation Agent system prompt. No KB service, no retrieval layer, no keyword search. | 0 min (folded into E6-1) |
-| **E6-3** | Format and inject plumbing knowledge into the Conversation Agent system prompt. Sections: common problems, urgency signals per problem, typical cost ranges (CAD), triage questions to ask. | 20 min |
-| **E6-4** | Test that agent stays grounded: ask edge-case questions, verify agent flags unknowns for Jill rather than guessing. | 15 min |
-
-**Acceptance:** Agent can retrieve relevant knowledge when asked a plumbing question. No hallucinations on facts.
+| Task | Details |
+|------|---------|
+| **E6-1** | Write plumbing knowledge: 30-50 facts covering common problems, urgency signals, CAD cost ranges, triage questions per problem type. |
+| **E6-2** | ~~RAG retrieval~~ -- replaced by system prompt. Knowledge lives directly in Conversation Agent instructions. |
+| **E6-3** | Format full system prompt: identity + behavior rules, urgency classification definitions, plumbing knowledge, conversation flow rules (collect name/phone/email, flag unknowns for Jill, 3-sentence max). |
+| **E6-4** | Test grounding once E2 is wired: ask edge-case questions, verify agent flags unknowns rather than guessing. |
+| **E6-5** | Contractor persona (Jill's Plumbing) -- Owner: Joe. Commit to `specifications/contractor_persona.md`. Feeds into system prompt + dashboard branding. |
 
 ---
 
 ## EPIC E7: Dashboard UI Implementation
 
-**Owner:** Frontend Lead  
-**Est. Time:** 2–3 hours  
-**Blockers:** E3, D3 (UI design)  
-**Deliverables:** Next.js dashboard. Conversation list + detail views. Quote approval UI. Real-time polling.
+**Owner:** Emeric or Mateen  
+**Status:** 🟡 in progress  
+**Blockers:** E3 (done), D3 (done)  
+**Design reference:** Mockups in `specifications/image.png`, `image (1).png`, `image (2).png`, `image (3).png`.  
+**OPEN:** Badge labels -- confirm emergency/priority/scheduled vs L0/L1/L2/L3 before building badges.
 
-| Task | Details | Est. |
-|------|---------|------|
-| **E7-1** | Next.js project setup + layout per D3 design. Install styling (Tailwind or equivalent from D3). | 30 min |
-| **E7-2** | Implement conversation list view per D3 design: fetch from `/conversations` (E3), display list, filter/search by status/customer, urgency badges (red for emergency) | 45 min |
-| **E7-3** | Implement conversation detail view per D3 design: expand to show transcript, customer info, booked slot, quote, buttons | 30 min |
-| **E7-4** | Implement quote approval UI per D3 design: approve/reject/revise buttons. POST to `/quotes/{id}/review` (E3). | 30 min |
-| **E7-5** | Add real-time polling: fetch `/conversations` every 3–5 sec. Update UI on changes. | 20 min |
-
-**Acceptance:** Dashboard loads per D3 design. Conversations visible. Click to expand → transcript. Approve button works. UI updates.
-
----
-
-## EPIC E8: Chat UI Implementation
-
-**Owner:** Frontend Lead (or co-owned with E7)  
-**Est. Time:** 2–2.5 hours  
-**Blockers:** E3, D3 (UI design)  
-**Deliverables:** Customer chat UI. Message display + input. Session management. Integrated into Next.js.
-
-| Task | Details | Est. |
-|------|---------|------|
-| **E8-1** | Chat component per D3 design: message list, input form, send button, typing indicator, loading states, error handling | 45 min |
-| **E8-2** | Wire chat to POST `/chat` endpoint (E3): send user message, display agent response, handle errors per D2 error spec | 30 min |
-| **E8-3** | Session management (frontend): on first `POST /chat`, backend creates session and returns `session_id`. Frontend stores it in memory and includes it on all subsequent turns. **Do not pre-create sessions; do not use localStorage.** | 15 min |
-| **E8-4** | Styling & accessibility per D3 guide: contrast, font sizes, mobile-responsive, keyboard nav, focus states | 20 min |
-
-**Acceptance:** Customer can type message → see agent response. Conversation persists across reloads. Matches D3 design.
+| Task | Details |
+|------|---------|
+| **E7-1** | Next.js layout + styling (Tailwind). |
+| **E7-2** | Pipeline list view: grouped sections (Needs you / Customer-side / Booked / Closed), urgency badges, inline approve-quote action. |
+| **E7-3** | Conversation detail view: transcript, customer info card, booked slot, safety escalation notice, action buttons. |
+| **E7-4** | Quote approval UI: approve/reject/revise buttons, POST to `/quotes/{id}/review`. |
+| **E7-5** | Real-time polling: fetch `/conversations` every 3-5 sec. |
+| **E7-6** | Debug panel (collapsible): routing decision, urgency label, state before/after, latency. |
 
 ---
 
-## EPIC E9: Triage & Urgency Logic
+## EPIC E8: ~~Chat UI~~ -- REMOVED
 
-**Owner:** Joe / Calan  
-**Est. Time:** 1.5–2 hours  
-**Blockers:** E2, E6, D2 (orchestration)  
-**Deliverables:** Triage sub-agent implementation. Emergency detection. Dashboard red badges for urgent convos.
+No customer-facing chat UI in scope. Session management note for the record: backend creates `session_id` on first `POST /chat` and returns it; frontend stores in memory only (no localStorage, no pre-creation).
 
-| Task | Details | Est. |
-|------|---------|------|
-| **E9-1** | Implement triage logic in the Conversation Agent (merged per agent design v3). Detect emergency signals (flooding, gas smell, no water, etc.). Classify urgency continuously as conversation evolves: `emergency`, `priority`, `scheduled`, `out-of-scope`. | 45 min |
-| **E9-2** | Test triage on demo scenarios: "Water everywhere" → `emergency`, "Hot water tank" → `priority`, "Dishwasher reinstall" → `scheduled`, "I need an electrician" → `out-of-scope`. Verify classification. | 30 min |
-| **E9-3** | Ensure urgent conversations are flagged RED in dashboard (E7). Contractor sees immediate alert. | 20 min |
+---
 
-**Acceptance:** Triage reliably detects emergencies per D2 spec. Dashboard shows red badge per D3 design. Agent offers immediate first-step guidance.
+## EPIC E9: Triage & Urgency Logic ✅ DONE
+
+**Owner:** Joe  
+**Status:** ✅ done  
+**Blockers:** E2 (done), E6 (done), D2 (done)
+
+| Task | Details |
+|------|---------|
+| **E9-1** ✅ | Triage logic in Conversation Agent. Urgency classified continuously: `emergency`, `priority`, `scheduled`, `out-of-scope`. |
+| **E9-2** ✅ | Verified on demo scenarios: "Water everywhere" → emergency, "Hot water tank" → priority, "Dishwasher reinstall" → scheduled, "I need an electrician" → out-of-scope. |
+| **E9-3** | Emergency conversations flagged RED in dashboard. (Depends on E7.) |
 
 ---
 
 ## EPIC E10: Scheduling & Calendar Logic
 
-**Owner:** Joe / Calan  
-**Est. Time:** 1.5–2 hours  
-**Blockers:** E2, E4, D1 (state machine)  
-**Deliverables:** Scheduling Agent. Calendly link delivery. Webhook handler for `invitee.created` / `invitee.canceled`. Booking record with `booked_slot_text`. Dashboard notification on booking confirmed.
+**Owner:** Emeric or Mateen -- decide at standup  
+**Status:** 🟡 just started (E10-1 done, webhook not built)  
+**Blockers:** E2 (not started)
 
-| Task | Details | Est. |
-|------|---------|------|
-| **E10-1** | ~~CSV calendar~~ -- **Replaced by Calendly.** Confirm Calendly account is set up: event type created, buffer time set, working hours configured, webhook URL registered. Copy `scheduling_url` and `event_type_uri` into `.env`. | 15 min |
-| **E10-2** | Implement Scheduling Agent: sends `scheduling_url` to customer via chat (with urgency-appropriate framing). For emergency -- bypass Calendly entirely, alert Jill. For priority -- send link immediately, prompt for earliest slot. For scheduled -- send link after scoping. | 30 min |
-| **E10-3** | Implement Calendly webhook handler (`POST /webhooks/calendly`): validate `Calendly-Webhook-Signature`, handle `invitee.created` (create Booking, set `booked_slot_text`, update Project status to Booked, notify dashboard) and `invitee.canceled` (update Booking status to Cancelled). | 40 min |
-| **E10-4** | Test Calendly flow end-to-end in demo scenarios 2 and 3. Verify Booking record created, `booked_slot_text` populated, dashboard shows booking. | 15 min |
-
-**Acceptance:** Agent sends Calendly link. Customer books via Calendly. Webhook fires, Booking record created with `booked_slot_text`. Project status updated to Booked. Dashboard shows booked time.
+| Task | Details |
+|------|---------|
+| **E10-1** ✅ | Calendly account set up, URL confirmed. Logo: Joe (pending). `scheduling_url` + `event_type_uri` in `.env`. |
+| **E10-2** | Scheduling Agent: sends link to customer with urgency-appropriate framing. Emergency bypasses Calendly entirely. |
+| **E10-3** | Calendly webhook handler (`POST /webhooks/calendly`): validate signature, handle `invitee.created` (create Booking, set `booked_slot_text`, update status to Booked) and `invitee.canceled` (status to Cancelled). |
+| **E10-4** | End-to-end test in demo scenarios 2 and 3. |
 
 ---
 
 ## EPIC E11: Quote Generation & Approval
 
-**Owner:** Joe / Calan  
-**Est. Time:** 2–2.5 hours  
-**Blockers:** E2, E6, D1 (Quote model), D2 (API spec)  
-**Deliverables:** Quote Generator sub-agent. Quote workflow. Approval flow. Email/file output. Jen shares sample quotes and invoices to inform quote formatting and pricing logic.
+**Owner:** Jen  
+**Status:** just started  
+**Blockers:** E2 (not started), E6 (in progress)
 
-| Task | Details | Est. |
-|------|---------|------|
-| **E11-1** | Implement Quote Generator sub-agent: take job description + customer info, generate structured Quote object per D1 model | 45 min |
-| **E11-2** | Store quote to storage (E4). Link to conversation per D1 schema. Display in dashboard (E7). | 30 min |
-| **E11-3** | Implement contractor approval workflow: approve/reject/revise buttons per D3 UI design. Update quote status per D1 state machine. | 30 min |
-| **E11-4** | Output approved quote: format as email-ready text/HTML. Write to flat file or prepare for SMTP. | 15 min |
+**Approach:** Single targeted quote assuming a proper fix. Agent asks qualifying questions before generating. Quote reads like it came from an experienced plumber -- plain-language caveats, honest about unknowns, not a guaranteed price.
 
-**Acceptance:** Agent generates Quote per D1 model. Contractor approves via D3 UI. Quote status transitions per D1 state machine. Ready to email.
+| Task | Details |
+|------|---------|
+| **E11-1** | Qualifying questions in Conversation Agent before triggering quote: (1) how old is the house, (2) when was the kitchen/bathroom last renovated. If job has meaningfully different paths (e.g. patch vs. replace part vs. replace whole unit), ask customer preference before quoting. |
+| **E11-2** | Quote Generator sub-agent: generates a single scoped estimate assuming proper fix. Output includes: job summary, scope, estimated cost range (CAD), plain-language caveats ("won't know until I look under your sink", "shutoff valves not touched in decades may need replacing too"), confidence score (high/medium/low + one-line reason), standard disclaimer (not a guaranteed quote, final price confirmed on-site), contractor name/number. |
+| **E11-3** | Store quote to GCS, link to conversation by session ID, surface in dashboard with `pending_jill_review` status. |
+| **E11-4** | Notify Jill when quote is ready: SMS + dashboard badge. (Notification Agent per agent_design.mermaid.) |
+| **E11-5** | Contractor approval workflow: **Approve** → status `sent_to_customer`, email sent to customer. **Revise** (with comment) → regenerate updated quote incorporating Jill's note, return to `pending_jill_review`, loop until approved. **Reject** → flag on dashboard for manual follow-up, no customer email. |
+| **E11-6** | Email customer approved quote: job scope, price range, honest caveats, what to expect on the day, appointment slot if booked, contractor contact. MVP = formatted text email, flat file output. |
 
 ---
 
 ## EPIC E12: End-to-End Integration & Demo
 
-**Owner:** QA / Integration Lead  
-**Est. Time:** 3–4 hours  
-**Blockers:** All above epics  
-**Deliverables:** All 3 demo scenarios work end-to-end. Performance tested. Demo script + dry run.
+**Owner:** All  
+**Status:** 🔴 blocked -- starts when E2 + E6 + E10 + E11 are working  
+**Blockers:** All above epics
 
-| Task | Details | Est. |
-|------|---------|------|
-| **E12-1** | Run demo scenario 1 (Emergency): "Water everywhere" → agent detects per D1 triage, flags RED per D3 UI, offers first steps. Verify all components. | 45 min |
-| **E12-2** | Run demo scenario 2 (Routine): "Hot water tank" → triage, book slot per D1 state machine, generate quote, contractor approves per D3 UI. | 45 min |
-| **E12-3** | Run demo scenario 3 (Scheduled): "Dishwasher install" → triage, book, quote, approval. Full flow per D1 state machine. | 45 min |
-| **E12-4** | Performance tuning: measure response latency (target < 3 sec per D2 spec). Refine prompts for conversational tone. Polish UI per D3. Fix blockers. | 60 min |
-| **E12-5** | Write demo script. Dry run with team. Document exact inputs/expected outputs per D2 API spec. Final sign-off. | 30 min |
+Scenarios are fully scripted in `specifications/demo_scenarios.md` (Joe). Four scenarios, one per urgency level.
 
-**Acceptance:** All 3 scenarios repeatable, stable, polished. No errors in logs. Demo is ready for judges.
+| Task | Details |
+|------|---------|
+| **E12-1** | Scenario 1 -- emergency: "Water is spraying everywhere, my basement is flooding." → triage returns `emergency`, red badge, Jill alerted, safety guidance, no Calendly, no quote. |
+| **E12-2** | Scenario 2 -- priority: "My hot water tank stopped working." → triage returns `priority`, quote drafted, Jill approves, customer accepts, Calendly link sent, booking confirmed via webhook. |
+| **E12-3** | Scenario 3 -- scheduled: "I need my dishwasher reinstalled sometime next week." → triage returns `scheduled`, scope collected, Calendly link sent, customer self-books, no quote unless asked. |
+| **E12-4** | Scenario 4 -- out-of-scope: "I need an electrician." → triage returns `out-of-scope`, agent closes gracefully, no Calendly, no quote, no Jill alert. Status: Closed. |
+| **E12-5** | Performance + polish: response latency under 3 sec, conversational tone, UI polish. |
+| **E12-6** | Demo script written. Dry run done. Team signed off. Ready for judges. |
+
+---
+
+## EPIC E13: Demo Submission
+
+**Owner:** TBD (recommend Calan as PM)  
+**Status:** not started  
+**Blockers:** E12 (need working demo before recording)
+
+| Task | Details |
+|------|---------|
+| **E13-1** | Storyboard the demo video: 3-minute arc, which scenario shown, who speaks, what the judges see on screen. |
+| **E13-2** | Record demo video: all 4 scenarios or best 2-3 for time. Dashboard + agent conversation visible. |
+| **E13-3** | Draft submission answers: problem statement, technical approach, novelty, impact, team. |
+| **E13-4** | Jen -- digitize pitch/overview PPT slides to mermaid or markdown for submission materials. |
+| **E13-5** | Final review + submit before deadline. |
 
 ---
 
