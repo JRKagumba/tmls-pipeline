@@ -14,7 +14,7 @@ Product rules baked in (post Calen plumbing-KB update):
   water near electrical, sewage backup with a vulnerable occupant, or
   sewer gas with reported symptoms. These bypass quoting and Calendly.
   The customer receives a verbatim safety script with a specific phone
-  number; Jill / Steve gets the conversation immediately for a welfare
+  number; Jill gets the conversation immediately for a welfare
   follow-up.
 - **L0 wrong-trade OOS** (``urgency_level = "wrong_trade_oos"``,
   ``internal_level = "L0_oos"``). Pool / hot tub equipment, well systems,
@@ -436,7 +436,7 @@ def _build_safety_escalation_result(
         confidence=_confidence_from_hits(len(signals), cap=0.97, base=0.9),
         reason=reason,
         recommended_action=(
-            "Deliver the safety script verbatim, alert Jill / Steve for "
+            "Deliver the safety script verbatim, alert Jill for "
             "a welfare follow-up call. Do not generate a quote and do "
             f"not send a Calendly link. Subtype: {subtype}."
         ),

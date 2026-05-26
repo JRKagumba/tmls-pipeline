@@ -156,7 +156,7 @@ Hybrid classifier with strict ordering:
   "internal_level": "L0_safety | L0_oos | L1_immediate | L2_24h_to_48 | L3_more_than_48h",
   "confidence": 0.92,
   "reason": "Customer reports a gas smell in the home.",
-  "recommended_action": "Deliver the safety script verbatim, alert Jill / Steve for a welfare follow-up call.",
+  "recommended_action": "Deliver the safety script verbatim, alert Jill for a welfare follow-up call.",
   "customer_facing_guidance": "Please leave the home... call Enbridge Gas Emergency at 1-866-763-5427...",
   "requires_human_followup": true,
   "continue_normal_flow": false,

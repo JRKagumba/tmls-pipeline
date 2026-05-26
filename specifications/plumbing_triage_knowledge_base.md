@@ -23,8 +23,8 @@ These are non-negotiable behavioural rules for the conversation agent. They are 
 1. **Acknowledge before redirecting.** When a customer describes something stressful, the first sentence should validate the situation, not jump to next steps. *"That sounds frightening — let's make sure you're safe first."*
 2. **Lead with the action, not the explanation.** Especially at L0, tell the customer what to do right now before explaining why.
 3. **Give specific phone numbers, never categories.** *"Call Enbridge Emergency at 1-866-763-5427"* — not *"call your gas utility."*
-4. **Never say "this is out of scope."** That's developer language. Say: *"This isn't something Steve can fix safely — but here's exactly who can."*
-5. **Never end a conversation with the customer feeling abandoned.** Even when redirecting elsewhere, close with: *"I'm flagging this for Steve right now, and he'll follow up to make sure you got the help you needed."*
+4. **Never say "this is out of scope."** That's developer language. Say: *"This isn't something Jill can fix safely — but here's exactly who can."*
+5. **Never end a conversation with the customer feeling abandoned.** Even when redirecting elsewhere, close with: *"I'm flagging this for Jill right now, and he'll follow up to make sure you got the help you needed."*
 6. **At L0, confirm the customer is acting.** If you tell them to leave the house, ask *"Are you outside now?"* If no, repeat the instruction. One-shot scripts fail; confirmation loops save lives.
 
 ---
@@ -68,21 +68,21 @@ These go in the F5 system prompt verbatim with Q1 + 🎯 signal. They cover the 
 - Q2: Do you know the source — a pipe, an appliance, a sewer backup, or the sump pump?
 - Q3: Is the water near any electrical outlets, panels, or appliances?
 - 🎯 **Signal:** Water near electrical → **L0_safety**. Rising water + unknown source → **L1_immediate**. Stopped + cleaned up → **L2_24h_to_48**.
-- **📞 L0 script (electrical risk):** *"That's serious — water and electricity together is dangerous. Please don't touch any switches or appliances near the water. If you can safely reach your electrical panel without stepping through water, shut off the main breaker. If you can't, please leave the area and call your electrician or the fire department at 911. I'm flagging this for Steve right now — he'll follow up as soon as it's safe."*
+- **📞 L0 script (electrical risk):** *"That's serious — water and electricity together is dangerous. Please don't touch any switches or appliances near the water. If you can safely reach your electrical panel without stepping through water, shut off the main breaker. If you can't, please leave the area and call your electrician or the fire department at 911. I'm flagging this for Jill right now — he'll follow up as soon as it's safe."*
 
 ### 3. Sewage backup into home
 ⮕ **Q1:** Is sewage coming up through a drain, toilet, or floor right now?
 - Q2: Is it in living space, or only in an unfinished basement or utility area?
 - Q3: Is more than one fixture affected (e.g., toilet + tub + sink)? Anyone in the home elderly, infant, or with health issues?
 - 🎯 **Signal:** Sewage in living space + vulnerable occupant → **L0_safety**. Sewage in living space OR multiple fixtures → **L1_immediate** (likely main line blockage). Single fixture, contained → **L2_24h_to_48**.
-- **📞 L0 script (vulnerable occupant):** *"I'm sorry — that's a real health hazard, especially with [an infant / elderly family member / someone with health issues] in the home. Please keep everyone out of the affected area. If anyone is having symptoms — nausea, dizziness, trouble breathing — call 911. Otherwise, I'm flagging this as urgent for Steve right now and he'll prioritize this. In the meantime, don't run any water in the home — it'll make the backup worse."*
+- **📞 L0 script (vulnerable occupant):** *"I'm sorry — that's a real health hazard, especially with [an infant / elderly family member / someone with health issues] in the home. Please keep everyone out of the affected area. If anyone is having symptoms — nausea, dizziness, trouble breathing — call 911. Otherwise, I'm flagging this as urgent for Jill right now and he'll prioritize this. In the meantime, don't run any water in the home — it'll make the backup worse."*
 
 ### 4. No water in the home **[Boundary OOS — may be municipal]**
 ⮕ **Q1:** Is there no water at any tap, or only some?
 - Q2: Have you checked with neighbours, or is there a notice from the city about a water shutoff?
 - Q3: Have you checked that the main shutoff valve inside the home is open?
 - 🎯 **Signal:** No water + neighbours also affected → **OOS-Municipal** (direct to 311). No water at this property only → **L1_immediate**. Partial / one fixture → see #12.
-- **OOS response:** *"It sounds like this might be a city-side issue — when neighbours are also affected, the cause is usually the municipal supply. Please call 311 or check the City of Toronto's water service alerts page. If it turns out it's just your home, message back and Steve will get someone out. I'm flagging this so he knows to check in."*
+- **OOS response:** *"It sounds like this might be a city-side issue — when neighbours are also affected, the cause is usually the municipal supply. Please call 311 or check the City of Toronto's water service alerts page. If it turns out it's just your home, message back and Jill will get someone out. I'm flagging this so he knows to check in."*
 
 ### 5. Water heater not heating (no hot water)
 ⮕ **Q1:** Is the tank gas or electric, and are you getting any hot water at all?
@@ -111,7 +111,7 @@ These go in the F5 system prompt verbatim with Q1 + 🎯 signal. They cover the 
 ⮕ **Q1:** Can you smell gas right now, even faintly?
 - Q2 (only if YES, and only if customer is safe): Where in the home — near the water heater, the stove, or somewhere else? Is anyone feeling dizzy or unwell?
 - 🎯 **Signal:** Any gas smell → **L0_safety**, no exceptions.
-- **📞 L0 script:** *"That can be dangerous — please leave the home now, and don't use any light switches, phones, or appliances inside. Once you're outside, call Enbridge Gas Emergency at 1-866-763-5427. If anyone is feeling dizzy, nauseous, or unwell, call 911. I'm flagging this for Steve immediately — he'll follow up as soon as Enbridge has cleared things. Are you able to get outside now?"*
+- **📞 L0 script:** *"That can be dangerous — please leave the home now, and don't use any light switches, phones, or appliances inside. Once you're outside, call Enbridge Gas Emergency at 1-866-763-5427. If anyone is feeling dizzy, nauseous, or unwell, call 911. I'm flagging this for Jill immediately — he'll follow up as soon as Enbridge has cleared things. Are you able to get outside now?"*
 - **Confirmation loop:** If customer doesn't confirm they've left, repeat: *"Please get outside first — Enbridge can be on their way while you're on the line with them."*
 - **Why OOS:** Most plumbers in Ontario don't hold a TSSA G2 gas-fitter ticket and cannot legally work on gas appliances.
 
@@ -120,7 +120,7 @@ These go in the F5 system prompt verbatim with Q1 + 🎯 signal. They cover the 
 - Q2: Where is the pipe — exposed, in a wall, or in an unheated area?
 - Q3: What's the outdoor temperature, and is the home heated?
 - 🎯 **Signal:** Burst → #1. Frozen + no burst → **L1_immediate** (rapid thaw before burst). Heat is off in the home → **L1_immediate**.
-- **First-step advice:** *"Leave the nearest tap open — that gives the water somewhere to go as it thaws. Do not use an open flame or torch to thaw it. A hair dryer on low or a space heater nearby is safe. Steve will get someone there as fast as possible."*
+- **First-step advice:** *"Leave the nearest tap open — that gives the water somewhere to go as it thaws. Do not use an open flame or torch to thaw it. A hair dryer on low or a space heater nearby is safe. Jill will get someone there as fast as possible."*
 
 ### 11. Kitchen sink clogged / draining slowly
 ⮕ **Q1:** Is the sink completely blocked, draining slowly, or backing up into another sink?
@@ -200,7 +200,7 @@ These go in the F5 system prompt verbatim with Q1 + 🎯 signal. They cover the 
 - Q2: Any unused floor drains or rarely-used bathrooms that might have a dry P-trap?
 - Q3: Is anyone in the home feeling unwell — headache, nausea, dizziness?
 - 🎯 **Signal:** Symptoms present → **L0_safety**. Dry trap + no symptoms → **L3_more_than_48h** (simple fix — run water in the unused drain). Persistent + no dry trap → **L2_24h_to_48** (vent stack or wax seal issue).
-- **📞 L0 script (if symptoms):** *"Please open windows to ventilate, get everyone out of that room, and if symptoms get worse, call 911. Sewer gas can contain hydrogen sulfide which is dangerous at higher concentrations. I'm flagging this for Steve right now."*
+- **📞 L0 script (if symptoms):** *"Please open windows to ventilate, get everyone out of that room, and if symptoms get worse, call 911. Sewer gas can contain hydrogen sulfide which is dangerous at higher concentrations. I'm flagging this for Jill right now."*
 
 ### 25. Toilet rocks / leaks at base
 ⮕ **Q1:** Is the water on the floor only after flushing, or all the time?
@@ -362,7 +362,7 @@ Lower frequency but still real customer calls. **For the hackathon:** consider k
 
 **Customer:** *"I'm outside now. Calling Enbridge."*
 
-**Agent (closing with care, not abandonment):** *"You did the right thing reaching out. I want you to know I'm flagging this for Steve right now — he won't be able to work on the gas line himself (Enbridge handles that), but he'll personally call you back within the hour to make sure you're okay and to help you figure out next steps once Enbridge has cleared the home. Stay safe."*
+**Agent (closing with care, not abandonment):** *"You did the right thing reaching out. I want you to know I'm flagging this for Jill right now — he won't be able to work on the gas line himself (Enbridge handles that), but he'll personally call you back within the hour to make sure you're okay and to help you figure out next steps once Enbridge has cleared the home. Stay safe."*
 
 ### What the dashboard does in parallel
 
@@ -378,7 +378,7 @@ Lower frequency but still real customer calls. **For the hackathon:** consider k
 2. Agent uses specific phone numbers, confirms customer is acting, closes with personal commitment
 3. Dashboard lights up with the amber Safety Escalation badge — separate from the red Emergency badge from Demo 1
 4. Presenter pivots: *"And here's where the human stays in the loop"* → Jill (or simulated outbound) calls the customer back to confirm welfare
-5. Closing line for the pitch: *"Every other intake tool would have either booked this as a regular call or dropped the customer entirely. Pipeline did the right thing — and Steve's customer will remember that forever."*
+5. Closing line for the pitch: *"Every other intake tool would have either booked this as a regular call or dropped the customer entirely. Pipeline did the right thing — and Jill's customer will remember that forever."*
 
 ### Why gas leak vs. other L0 scenarios for the demo
 
@@ -405,6 +405,6 @@ If the dashboard already handles L1 with a red badge, adding L0 amber badge styl
 
 5. **L0 confirmation loop:** Build the agent loop so it tracks whether the customer has confirmed they're acting on the safety instruction. Don't move on until they confirm, or two retries have passed and Jill is alerted to call. **Minimum viable version if time-constrained:** detect L0 → send script → flag for Jill → don't wait for confirmation. That covers liability. The confirmation loop is the "great" version; the immediate-flag is the "good enough" version. Don't let it block shipping.
 
-6. **Wrong-trade OOS as referral revenue:** Pattern B OOS calls aren't waste — they're a referral network opportunity. Build the Jill-flag with a "refer to: ___" field so Steve can develop partner relationships and earn referral fees over time. The spec doesn't address this; worth raising with the team post-hackathon.
+6. **Wrong-trade OOS as referral revenue:** Pattern B OOS calls aren't waste — they're a referral network opportunity. Build the Jill-flag with a "refer to: ___" field so Jill can develop partner relationships and earn referral fees over time. The spec doesn't address this; worth raising with the team post-hackathon.
 
 7. **Cost ranges (spec gap):** F4 requires cost ranges in the quote. This document doesn't include them because guessing GTA plumber pricing without data is the kind of hallucination NFR-05 forbids. Someone on the team needs to source these — likely the contractor persona owner (spec Open Question #4).

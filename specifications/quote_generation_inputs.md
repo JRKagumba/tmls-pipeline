@@ -9,7 +9,7 @@ plumber's customer conversation — only patterns are captured here, no
 personal information.
 
 This is a spec document; the numbers below are placeholders. Final values
-come from the contractor's real rate sheet (Jill / Steve), captured per
+come from the contractor's real rate sheet (Jill), captured per
 contractor in a `PricingProfile` record.
 
 ---

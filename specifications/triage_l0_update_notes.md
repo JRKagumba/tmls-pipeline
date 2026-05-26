@@ -51,12 +51,12 @@ For any classification in the L0 family:
    - Sewage + vulnerable occupant: *"Keep everyone out of the affected
      area. Call 911 if anyone has symptoms."*
 4. **Customer confirmation loop (minimum viable).** Detect L0 → send
-   script → flag for Jill / Steve. The "great" version adds a
+   script → flag for Jill. The "great" version adds a
    confirmation prompt (*"Are you outside now?"*) and re-asks if the
    customer doesn't confirm; out of MVP scope but documented in the KB.
 5. **Mandatory human follow-up.** Dashboard tile lights up amber. Jill
-   or Steve calls the customer back within the agreed SLA (target: 1
-   hour for safety; same business day for wrong-trade / boundary).
+   calls the customer back within the agreed SLA (target: 1 hour for
+   safety; same business day for wrong-trade / boundary).
 6. **Distinct close state.** Conversations close with status
    `closed_safety_escalation` after Jill follows up — separate from
    `closed_no_action` (wrong number, out of area, etc.).
@@ -182,4 +182,4 @@ After this update:
 | E10  | When `urgency_level` is any L0 value, return `booking_method = "manual_emergency"` with `scheduling_url = null`. No change to L1 / L2 / L3 behaviour. |
 | E11  | When `urgency_level` is any L0 value, do not call `generate_quote_draft`. No change otherwise. |
 | D3   | Add the amber **Safety Escalation** badge. The dashboard tile counts all three L0 subtypes. The conversation detail panel shows the subtype + the specific safety / redirect guidance from the triage result. |
-| Orchestrator (E2) | On L0, deliver the `customer_facing_guidance` verbatim, then alert Jill / Steve. Minimum viable version skips the confirmation loop; great version adds it later. |
+| Orchestrator (E2) | On L0, deliver the `customer_facing_guidance` verbatim, then alert Jill. Minimum viable version skips the confirmation loop; great version adds it later. |

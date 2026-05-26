@@ -18,7 +18,7 @@ flowchart LR
     %% -------------------------
     D -->|L0 safety<br/>gas / electrical /<br/>vulnerable + sewage| L0S1[Deliver safety script<br/>with specific phone number<br/>e.g. Enbridge 1-866-763-5427]
     L0S1 --> L0S2[Confirm customer is acting<br/>'Are you outside now?']
-    L0S2 --> L0COM[Alert Jill / Steve immediately<br/>Dashboard: Safety Escalation<br/>NO quote, NO Calendly]
+    L0S2 --> L0COM[Alert Jill immediately<br/>Dashboard: Safety Escalation<br/>NO quote, NO Calendly]
 
     %% -------------------------
     %% L0 WRONG-TRADE OOS (pool, well, septic, gas boiler, irrigation)
