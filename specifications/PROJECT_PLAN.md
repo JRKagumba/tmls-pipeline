@@ -283,14 +283,14 @@ No customer-facing chat UI in scope. Session management note for the record: bac
 
 **Approach:** Single targeted quote assuming a proper fix. Agent asks qualifying questions before generating. Quote reads like it came from an experienced plumber -- plain-language caveats, honest about unknowns, not a guaranteed price.
 
-| Task | Details |
-|------|---------|
-| **E11-1** | Qualifying questions in Conversation Agent before triggering quote: (1) how old is the house, (2) when was the kitchen/bathroom last renovated. If job has meaningfully different paths (e.g. patch vs. replace part vs. replace whole unit), ask customer preference before quoting. |
-| **E11-2** | Quote Generator sub-agent: generates a single scoped estimate assuming proper fix. Output includes: job summary, scope, estimated cost range (CAD), plain-language caveats ("won't know until I look under your sink", "shutoff valves not touched in decades may need replacing too"), confidence score (high/medium/low + one-line reason), standard disclaimer (not a guaranteed quote, final price confirmed on-site), contractor name/number. |
-| **E11-3** | Store quote to GCS, link to conversation by session ID, surface in dashboard with `pending_jill_review` status. |
-| **E11-4** | Notify Jill when quote is ready: SMS + dashboard badge. (Notification Agent per agent_design.mermaid.) |
-| **E11-5** | Contractor approval workflow: **Approve** → status `sent_to_customer`, email sent to customer. **Revise** (with comment) → regenerate updated quote incorporating Jill's note, return to `pending_jill_review`, loop until approved. **Reject** → flag on dashboard for manual follow-up, no customer email. |
-| **E11-6** | Email customer approved quote: job scope, price range, honest caveats, what to expect on the day, appointment slot if booked, contractor contact. MVP = formatted text email, flat file output. |
+| Task | Owner | Details |
+|------|-------|---------|
+| **E11-1** | Jen | Qualifying questions before triggering quote: (1) how old is the house, (2) when was kitchen/bathroom last renovated. If job has meaningfully different paths (patch vs. replace part vs. replace whole unit), ask customer preference before quoting. |
+| **E11-2** | Jen | Quote Generator sub-agent: single scoped estimate assuming proper fix. Includes: job summary, scope, estimated cost range (CAD), plain-language caveats ("won't know until I look under your sink", "shutoff valves not touched in decades may need replacing too"), confidence score (high/medium/low + one-line reason), standard disclaimer (not a guaranteed quote, final price confirmed on-site), contractor name/number. |
+| **E11-3** | Jen | Store quote to GCS, link to conversation by session ID, surface in dashboard with `pending_jill_review` status. |
+| **E11-4** | Jen | Notify Jill when quote is ready: SMS + dashboard badge. (Notification Agent per agent_design.mermaid.) |
+| **E11-5** | Jen | Contractor approval workflow: **Approve** → status `sent_to_customer`, email sent to customer. **Revise** (with comment) → regenerate updated quote incorporating Jill's note, return to `pending_jill_review`, loop until approved. **Reject** → flag on dashboard for manual follow-up, no customer email. |
+| **E11-6** | Jen | Email customer approved quote: job scope, price range, honest caveats, what to expect on the day, appointment slot if booked, contractor contact. MVP = formatted text email, flat file output. |
 
 ---
 
